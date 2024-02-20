@@ -13,6 +13,7 @@ type CounterBuffer struct {
 	End         int    `json:"end"`
 	Extraceted  string `json:"extraceted"`
 	Decimal     int    `json:"decimal"`
+	Extracted   string `json:"extracted"`
 }
 
 // EventData represents the structure of an event object
@@ -35,17 +36,27 @@ func ExtractInformation(hexData string, config Configuration) {
 		return
 	}
 
-	for _, event := range config.ByteRange {
+	for i, event := range config.ByteRange {
 		fmt.Printf("Event Type: %s, Counter Description: %s\n", event.EventType, event.CounterDescription)
-		for _, buffer := range event.BufferContent {
+		for j, buffer := range event.BufferContent {
 			if buffer.End <= len(data) {
 				extracted := data[buffer.Start:buffer.End]
+				config.ByteRange[i].BufferContent[j].Extracted = hex.EncodeToString(extracted)
 				fmt.Printf("Description: %s, Start: %d, End: %d, Extracted Data: %x, Decimal: %d\n", buffer.Description, buffer.Start, buffer.End, extracted, buffer.Decimal)
 			} else {
 				fmt.Println("Error: End byte exceeds data length")
 			}
 		}
 	}
+
+	// Print JSON with extracted data
+	jsonData, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		fmt.Println("Error marshaling JSON:", err)
+		return
+	}
+	fmt.Println("Extracted Data:")
+	fmt.Println(string(jsonData))
 }
 
 func main() {
