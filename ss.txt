@@ -1,0 +1,105 @@
+package main
+
+import (
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+)
+
+// CounterBuffer represents the structure of a counter or buffer object
+type CounterBuffer struct {
+	Start      int    `json:"start"`
+	End        int    `json:"end"`
+	Extraceted string `json:"extraceted"`
+	Decimal    int    `json:"decimal"`
+}
+
+// EventData represents the structure of an event object
+type EventData struct {
+	EventType          string          `json:"cb_event_type"`
+	CounterDescription string          `json:"cb_counter_description"`
+	BufferContent      []CounterBuffer `json:"cb_buffer_content"`
+}
+
+// Configuration represents the structure of the JSON configuration
+type Configuration struct {
+	ByteRange []EventData `json:"cb_byte_range"`
+}
+
+// ExtractInformation extracts information from hex data based on the provided configuration
+func ExtractInformation(hexData string, config Configuration) {
+	data, err := hex.DecodeString(hexData)
+	if err != nil {
+		fmt.Println("Error decoding hex data:", err)
+		return
+	}
+
+	for _, event := range config.ByteRange {
+		fmt.Printf("Event Type: %s, Counter Description: %s\n", event.EventType, event.CounterDescription)
+		for _, buffer := range event.BufferContent {
+			if buffer.End <= len(data) {
+				extracted := data[buffer.Start:buffer.End]
+				fmt.Printf("Start: %d, End: %d, Extracted Data: %x, Decimal: %d\n", buffer.Start, buffer.End, extracted, buffer.Decimal)
+			} else {
+				fmt.Println("Error: End byte exceeds data length")
+			}
+		}
+	}
+}
+
+func main() {
+	// Sample hex data
+	hexData := "0123456789abcdef"
+
+	// Sample JSON configuration
+	jsonConfig := `{
+		"cb_byte_range":[
+		  {
+			"cb_event_type" :"01",
+			"cb_counter_description":"failed",
+			"cb_buffer_content":[
+			  {
+				"start":0,
+				"end":4,
+				"extraceted": "00011",
+				"decimal":122
+			  },
+			  {
+				"start":4,
+				"end":8,
+				"extraceted": "00022",
+				"decimal":123
+			  }
+			]
+		  },
+		  {
+			"cb_event_type" :"02",
+			"cb_counter_description":"failsssed",
+			"cb_buffer_content":[
+			  {
+				"start":0,
+				"end":2,
+				"extraceted": "00033",
+				"decimal":124
+			  },
+			  {
+				"start":2,
+				"end":6,
+				"extraceted": "00044",
+				"decimal":125
+			  }
+			]
+		  }
+		]
+	  }`
+
+	// Parse JSON configuration
+	var config Configuration
+	if err := json.Unmarshal([]byte(jsonConfig), &config); err != nil {
+		fmt.Println("Error parsing JSON:", err)
+		return
+	}
+
+	// Extract information from hex data based on the configuration
+	ExtractInformation(hexData, config)
+}
