@@ -8,10 +8,11 @@ import (
 
 // CounterBuffer represents the structure of a counter or buffer object
 type CounterBuffer struct {
-	Start      int    `json:"start"`
-	End        int    `json:"end"`
-	Extraceted string `json:"extraceted"`
-	Decimal    int    `json:"decimal"`
+	Description string `json:"description"`
+	Start       int    `json:"start"`
+	End         int    `json:"end"`
+	Extraceted  string `json:"extraceted"`
+	Decimal     int    `json:"decimal"`
 }
 
 // EventData represents the structure of an event object
@@ -39,7 +40,7 @@ func ExtractInformation(hexData string, config Configuration) {
 		for _, buffer := range event.BufferContent {
 			if buffer.End <= len(data) {
 				extracted := data[buffer.Start:buffer.End]
-				fmt.Printf("Start: %d, End: %d, Extracted Data: %x, Decimal: %d\n", buffer.Start, buffer.End, extracted, buffer.Decimal)
+				fmt.Printf("Description: %s, Start: %d, End: %d, Extracted Data: %x, Decimal: %d\n", buffer.Description, buffer.Start, buffer.End, extracted, buffer.Decimal)
 			} else {
 				fmt.Println("Error: End byte exceeds data length")
 			}
@@ -59,16 +60,18 @@ func main() {
 			"cb_counter_description":"failed",
 			"cb_buffer_content":[
 			  {
+				"description":"cb_ticks",
 				"start":0,
 				"end":4,
 				"extraceted": "00011",
 				"decimal":122
 			  },
 			  {
-				"start":4,
-				"end":8,
-				"extraceted": "00022",
-				"decimal":123
+				"description":"cb_daig",
+				"start":0,
+				"end":4,
+				"extraceted": "00011",
+				"decimal":122
 			  }
 			]
 		  },
@@ -77,16 +80,18 @@ func main() {
 			"cb_counter_description":"failsssed",
 			"cb_buffer_content":[
 			  {
+				"description":"cb_ticks",
 				"start":0,
-				"end":2,
-				"extraceted": "00033",
-				"decimal":124
+				"end":4,
+				"extraceted": "00011",
+				"decimal":122
 			  },
 			  {
-				"start":2,
-				"end":6,
-				"extraceted": "00044",
-				"decimal":125
+				"description":"cb_daig",
+				"start":0,
+				"end":4,
+				"extraceted": "00011",
+				"decimal":122
 			  }
 			]
 		  }
