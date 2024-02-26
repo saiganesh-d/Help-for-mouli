@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 )
@@ -13,7 +12,6 @@ type CounterBuffer struct {
 	End         int    `json:"end"`
 	Extraceted  string `json:"extraceted"`
 	Decimal     int    `json:"decimal"`
-	Extracted   string `json:"extracted"`
 }
 
 // EventData represents the structure of an event object
@@ -28,43 +26,9 @@ type Configuration struct {
 	ByteRange []EventData `json:"cb_byte_range"`
 }
 
-// ExtractInformation extracts information from hex data based on the provided configuration
-func ExtractInformation(hexData string, config Configuration) {
-	data, err := hex.DecodeString(hexData)
-	if err != nil {
-		fmt.Println("Error decoding hex data:", err)
-		return
-	}
-
-	for i, event := range config.ByteRange {
-		fmt.Printf("Event Type: %s, Counter Description: %s\n", event.EventType, event.CounterDescription)
-		for j, buffer := range event.BufferContent {
-			if buffer.End <= len(data) {
-				extracted := data[buffer.Start:buffer.End]
-				config.ByteRange[i].BufferContent[j].Extracted = hex.EncodeToString(extracted)
-				fmt.Printf("Description: %s, Start: %d, End: %d, Extracted Data: %x, Decimal: %d\n", buffer.Description, buffer.Start, buffer.End, extracted, buffer.Decimal)
-			} else {
-				fmt.Println("Error: End byte exceeds data length")
-			}
-		}
-	}
-
-	// Print JSON with extracted data
-	jsonData, err := json.MarshalIndent(config, "", "  ")
-	if err != nil {
-		fmt.Println("Error marshaling JSON:", err)
-		return
-	}
-	fmt.Println("Extracted Data:")
-	fmt.Println(string(jsonData))
-}
-
 func main() {
-	// Sample hex data
-	hexData := "0123456789abcdef"
-
 	// Sample JSON configuration
-	jsonConfig := `{
+	jsonData := `{
 		"cb_byte_range":[
 		  {
 			"cb_event_type" :"01",
@@ -111,11 +75,26 @@ func main() {
 
 	// Parse JSON configuration
 	var config Configuration
-	if err := json.Unmarshal([]byte(jsonConfig), &config); err != nil {
+	if err := json.Unmarshal([]byte(jsonData), &config); err != nil {
 		fmt.Println("Error parsing JSON:", err)
 		return
 	}
 
-	// Extract information from hex data based on the configuration
-	ExtractInformation(hexData, config)
+	// Generate Go struct definitions
+	fmt.Println("Generated Go struct definitions:")
+	fmt.Println("------------------------------")
+	for _, event := range config.ByteRange {
+		fmt.Printf("type %s struct {\n", event.EventType)
+		fmt.Printf("\tEventType string `json:\"cb_event_type\"`\n")
+		fmt.Printf("\tCounterDescription string `json:\"cb_counter_description\"`\n")
+		fmt.Printf("\tBufferContent []struct {\n")
+		fmt.Printf("\t\tDescription string `json:\"description\"`\n")
+		fmt.Printf("\t\tStart int `json:\"start\"`\n")
+		fmt.Printf("\t\tEnd int `json:\"end\"`\n")
+		fmt.Printf("\t\tExtraceted string `json:\"extraceted\"`\n")
+		fmt.Printf("\t\tDecimal int `json:\"decimal\"`\n")
+		fmt.Printf("\t} `json:\"cb_buffer_content\"`\n")
+		fmt.Println("}")
+		fmt.Println()
+	}
 }
