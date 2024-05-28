@@ -1,0 +1,47 @@
+import requests
+from datetime import datetime
+from myapp.models import Vendor, Product, Version, CPE
+
+def fetch_and_store_cpe_data():
+    url = 'https://services.nvd.nist.gov/rest/json/cpes/2.0'
+    params = {
+        'resultsPerPage': 100,
+        'startIndex': 0
+    }
+    
+    while True:
+        response = requests.get(url, params=params)
+        data = response.json()
+        
+        for item in data['result']['cpes']:
+            cpe_str = item['cpe23Uri']
+            title = item.get('titles', [{}])[0].get('title', None)
+            last_modified_date = datetime.strptime(item['lastModifiedDate'], '%Y-%m-%dT%H:%M:%S.%fZ')
+
+            vendor_name, product_name, version_number = parse_cpe(cpe_str)
+
+            if vendor_name and product_name:
+                vendor, _ = Vendor.objects.get_or_create(name=vendor_name)
+                product, _ = Product.objects.get_or_create(name=product_name, vendor=vendor)
+                if version_number:
+                    version, _ = Version.objects.get_or_create(number=version_number, product=product)
+                else:
+                    version = None
+
+                cpe, created = CPE.objects.get_or_create(
+                    cpe_name=cpe_str,
+                    defaults={
+                        'title': title,
+                        'vendor': vendor,
+                        'product': product,
+                        'version': version,
+                        'last_modified_date': last_modified_date
+                    }
+                )
+
+        if data['result']['startIndex'] + data['result']['resultsPerPage'] >= data['result']['totalResults']:
+            break
+        
+        params['startIndex'] += data['result']['resultsPerPage']
+
+fetch_and_store_cpe_data()
