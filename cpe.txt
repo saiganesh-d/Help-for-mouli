@@ -1,0 +1,222 @@
+
+from django.http import JsonResponse
+import requests
+from tenacity import retry, wait_exponential, stop_after_attempt, before_sleep_log
+import logging
+import json
+from .models import Vendor, Product, Version, CPEEntry
+import pandas as pd
+
+import concurrent.futures
+from django.db import transaction
+from django.utils.dateparse import parse_datetime
+
+Vendor.objects.all().delete()
+Product.objects.all().delete()
+Version.objects.all().delete()
+CPEEntry.objects.all().delete()
+cpe_list = []
+
+def cpe_api(request):
+    try:
+        response = call_api_with_retry("https://services.nvd.nist.gov/rest/json/cpes/2.0")
+        response = response.json()
+        cpe_data = response["products"]
+        parse_and_prepare_batches(cpe_data)
+        
+        # with concurrent.futures.ThreadPoolExecutor() as executor:
+        #     futures = []
+        #     for batch in parse_and_prepare_batches(cpe_data):
+        #         futures.append(executor.submit(save_batch, batch))
+
+        #     for future in concurrent.futures.as_completed(futures):
+        #         future.result()
+
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"API request failed: {e}")
+    return JsonResponse({"x":"cpe_data"})
+
+
+
+
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+@retry(
+    wait=wait_exponential(multiplier=1, min=4, max=10),  # Wait between retries with exponential backoff
+    stop=stop_after_attempt(5),  # Stop after 5 attempts
+    before_sleep=before_sleep_log(logger, logging.INFO)  # Log before retrying
+)
+def call_api_with_retry(url, method='GET', headers=None, data=None, params=None):
+    """
+    Calls an API with retry logic.
+
+    :param url: URL of the API endpoint
+    :param method: HTTP method (e.g., 'GET', 'POST')
+    :param headers: Dictionary of HTTP headers
+    :param data: Dictionary or string to send in the body of the request
+    :param params: Dictionary or bytes to be sent in the query string
+    :return: Response object
+    """
+    response = requests.request(method, url, headers=headers, data=data, params=params)
+    response.raise_for_status()  # Raise an HTTPError on bad status
+    return response
+
+
+    
+
+
+# def save_cpe_data(api_response):
+#     Vendor.objects.all().delete()
+#     Product.objects.all().delete()
+#     Version.objects.all().delete()
+#     CPEEntry.objects.all().delete()
+
+    
+#     for cpe_d in api_response:
+
+#         cpe = cpe_d["cpe"]
+#         print("cpe_name: ", cpe)
+#         vendor_name = cpe['cpeName'].split(':')[3]
+#         product_name = cpe['cpeName'].split(':')[4]
+#         version_name = cpe['cpeName'].split(':')[5]
+
+
+#         vendor, created = Vendor.objects.get_or_create(name=vendor_name)
+#         product, created = Product.objects.get_or_create(name=product_name, vendor=vendor)
+#         version, created = Version.objects.get_or_create(version=version_name, product=product)
+
+#         cpe_entry, created = CPEEntry.objects.get_or_create(
+#             cpe_name=cpe['cpeName'],
+#             cpe_name_id=cpe['cpeNameId'],
+#             last_modified=datetime.fromisoformat(cpe['lastModified'].replace('Z', '+00:00')),
+#             created=datetime.fromisoformat(cpe['created'].replace('Z', '+00:00')),
+#             product=product,
+#             version=version
+#         )
+
+
+
+
+
+
+vendor_id = 1
+product_id =1
+version_id =1
+cpe_id = 1
+
+def parse_and_prepare_batches(api_response):
+    global vendor_id , product_id,version_id
+   
+    vendors = {}
+    products = {}
+    versions = {}
+    x= 1
+    for cpe_d in api_response:
+        cpe = cpe_d["cpe"]
+        vendor_name = cpe['cpeName'].split(':')[3]
+        product_name = cpe['cpeName'].split(':')[4]
+        version_str = cpe['cpeName'].split(':')[5]
+
+        cpe_dict_data = {"c_n": cpe['cpeName'],
+            "c_id":cpe['cpeNameId'],
+            "la_mo":parse_datetime(cpe['lastModified']),
+            "cr":parse_datetime(cpe['created']),
+            }
+
+
+        if not vendor_name in vendors:
+            v_id = vendor_id
+            vendors[vendor_name] = vendor_id
+            cpe_dict_data["vendor"]=vendor_id
+            vendor_id+=1
+        else:
+            v_id = vendors[vendor_name]
+            cpe_dict_data["vendor"]=v_id
+
+        p_id = get_id(products,product_name+"_"+vendor_name,v_id)
+        if p_id is None:
+            p_id =  product_id
+            products[product_name+"_"+vendor_name] = {"p_id":product_id,"v_id" :v_id,"product":product_name}
+            cpe_dict_data["product"]=product_id
+            product_id+=1
+        else:
+            cpe_dict_data["product"]=p_id
+            
+        
+        vr_id = get_v_id(versions,version_str+str(p_id),version_str)
+        if vr_id is None:
+            vr_id = version_id
+            versions[version_str+str(p_id)] = {"vr_id":version_id,"p_id":p_id, "version":version_str}
+            cpe_dict_data["version"]=version_id
+            version_id+=1
+        else:
+            cpe_dict_data["version"]=vr_id
+
+        cpe_list.append(cpe_dict_data)
+        x+=1
+        if x == 100:
+            break
+    df = pd.DataFrame.from_dict(cpe_list)
+    print(df)
+    df.to_csv('file1.csv')
+    print(versions)
+
+    return None
+        
+
+def get_id(data_dict, key_to_search, p_id_to_search):
+    nested_dict = data_dict.get(key_to_search, None)
+    if nested_dict and nested_dict.get("v_id") == p_id_to_search:
+        return nested_dict.get("p_id")
+    return None
+
+def get_v_id(data_dict, key_to_search, p_id_to_search):
+    nested_dict = data_dict.get(key_to_search, None)
+    if nested_dict and nested_dict.get("p_id") == p_id_to_search:
+        return nested_dict.get("vr_id")
+    return None
+
+
+
+from django.db import models
+
+class Vendor(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+
+    def __str__(self):
+        return self.name
+
+class Product(models.Model):
+    name = models.CharField(max_length=255)
+    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name='products')
+
+    class Meta:
+        unique_together = ('name', 'vendor')
+
+    def __str__(self):
+        return f"{self.vendor.name} - {self.name}"
+
+class Version(models.Model):
+    version = models.CharField(max_length=255)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='versions')
+
+    class Meta:
+        unique_together = ('version', 'product')
+
+    def __str__(self):
+        return f"{self.product.name} - {self.version}"
+
+class CPEEntry(models.Model):
+    cpe_name = models.CharField(max_length=255, unique=True)
+    cpe_name_id = models.CharField(max_length=255, unique=True)
+    last_modified = models.DateTimeField()
+    created = models.DateTimeField()
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='cpe_entries')
+    version = models.ForeignKey(Version, on_delete=models.CASCADE, related_name='cpe_entries')
+
+    def __str__(self):
+        return self.cpe_name
