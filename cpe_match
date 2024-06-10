@@ -1,0 +1,73 @@
+from myapp.models import CPEEntry, MatchString
+
+# Fetch all CPEEntry instances and create a lookup dictionary
+cpe_entries = CPEEntry.objects.all()
+cpe_lookup = {entry.cpe_name_id: entry for entry in cpe_entries}
+
+
+import json
+from datetime import datetime
+from myapp.models import MatchString
+
+# Example API response
+json_response = '''
+{
+  "matchStrings": [
+    {
+      "matchString": {
+        "matchCriteriaId": "36FBCF0F-8CEE-474C-8A04-5075AF53FAF4",
+        "criteria": "cpe:2.3:a:nmap:nmap:3.27:*:*:*:*:*:*:*",
+        "lastModified": "2019-06-17T09:16:33.960",
+        "cpeLastModified": "2019-07-22T16:37:38.133",
+        "created": "2019-06-17T09:16:33.960",
+        "status": "Active",
+        "matches": [
+          {
+            "cpeName": "cpe:2.3:a:nmap:nmap:3.27:*:*:*:*:*:*:*",
+            "cpeNameId": "4DAAA102-AB17-4491-B383-A1AAC764704C"
+          }
+        ]
+      }
+    },
+    {
+      "matchString": {
+        "matchCriteriaId": "D21D57EA-DF58-429B-9FBE-F0080085B62E",
+        "criteria": "cpe:2.3:a:gnu:cfengine:2.0.7:p1:*:*:*:*:*:*",
+        "lastModified": "2019-06-17T09:16:33.960",
+        "cpeLastModified": "2019-07-22T16:37:38.133",
+        "created": "2019-06-17T09:16:33.960",
+        "status": "Active"
+      }
+    }
+  ]
+}
+'''
+
+data = json.loads(json_response)
+match_strings = data["matchStrings"]
+
+# List to hold MatchString instances for bulk creation
+match_string_instances = []
+
+for match in match_strings:
+    match_string_data = match["matchString"]
+    
+    if "matches" in match_string_data:
+        for match_info in match_string_data["matches"]:
+            cpe_name_id = match_info["cpeNameId"]
+            
+            cpe_entry = cpe_lookup.get(cpe_name_id)
+            if cpe_entry:
+                match_string_instance = MatchString(
+                    match_criteria_id=match_string_data["matchCriteriaId"],
+                    criteria=match_string_data["criteria"],
+                    last_modified=datetime.fromisoformat(match_string_data["lastModified"]),
+                    cpe_last_modified=datetime.fromisoformat(match_string_data["cpeLastModified"]),
+                    created=datetime.fromisoformat(match_string_data["created"]),
+                    status=match_string_data["status"],
+                    cpe_entry=cpe_entry
+                )
+                match_string_instances.append(match_string_instance)
+
+# Bulk create MatchString instances
+MatchString.objects.bulk_create(match_string_instances)
