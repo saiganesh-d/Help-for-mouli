@@ -52,22 +52,28 @@ match_string_instances = []
 for match in match_strings:
     match_string_data = match["matchString"]
     
+    match_string_instance = MatchString(
+        match_criteria_id=match_string_data["matchCriteriaId"],
+        criteria=match_string_data["criteria"],
+        last_modified=datetime.fromisoformat(match_string_data["lastModified"]),
+        cpe_last_modified=datetime.fromisoformat(match_string_data["cpeLastModified"]),
+        created=datetime.fromisoformat(match_string_data["created"]),
+        status=match_string_data["status"]
+    )
+
+    # Save the instance to get the primary key
+    match_string_instance.save()
+
     if "matches" in match_string_data:
         for match_info in match_string_data["matches"]:
             cpe_name_id = match_info["cpeNameId"]
-            
             cpe_entry = cpe_lookup.get(cpe_name_id)
             if cpe_entry:
-                match_string_instance = MatchString(
-                    match_criteria_id=match_string_data["matchCriteriaId"],
-                    criteria=match_string_data["criteria"],
-                    last_modified=datetime.fromisoformat(match_string_data["lastModified"]),
-                    cpe_last_modified=datetime.fromisoformat(match_string_data["cpeLastModified"]),
-                    created=datetime.fromisoformat(match_string_data["created"]),
-                    status=match_string_data["status"],
-                    cpe_entry=cpe_entry
-                )
-                match_string_instances.append(match_string_instance)
+                # Link the MatchString to the CPEEntry
+                match_string_instance.cpe_entries.add(cpe_entry)
 
-# Bulk create MatchString instances
+    match_string_instances.append(match_string_instance)
+
+# Bulk create MatchString instances (many-to-many relations are already set)
 MatchString.objects.bulk_create(match_string_instances)
+
