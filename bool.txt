@@ -1,0 +1,202 @@
+import itertools
+
+# Sample data as provided
+configurations = [
+    {
+        "operator": "AND",
+        "nodes": [
+            {
+                "operator": "OR",
+                "negate": False,
+                "cpeMatch": [
+                    {
+                        "vulnerable": True,
+                        "criteria": "cpe:2.3:a:adobe:flash_player:*:*:*:*:*:*:*:*",
+                        "versionEndIncluding": "32.0.0.433",
+                        "matchCriteriaId": "3738ECEF-81C1-4A5A-9C1E-2BA3E7205475"
+                    }
+                ]
+            },
+            {
+                "operator": "OR",
+                "negate": False,
+                "cpeMatch": [
+                    {
+                        "vulnerable": False,
+                        "criteria": "cpe:2.3:o:apple:macos:-:*:*:*:*:*:*:*",
+                        "matchCriteriaId": "387021A0-AF36-463C-A605-32EA7DAC172E"
+                    },
+                    {
+                        "vulnerable": False,
+                        "criteria": "cpe:2.3:o:linux:linux_kernel:-:*:*:*:*:*:*:*",
+                        "matchCriteriaId": "703AF700-7A70-47E2-BC3A-7FD03B3CA9C1"
+                    },
+                    {
+                        "vulnerable": False,
+                        "criteria": "cpe:2.3:o:microsoft:windows:-:*:*:*:*:*:*:*",
+                        "matchCriteriaId": "A2572D17-1DE6-457B-99CC-64AFD54487EA"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "operator": "AND",
+        "nodes": [
+            {
+                "operator": "OR",
+                "negate": False,
+                "cpeMatch": [
+                    {
+                        "vulnerable": True,
+                        "criteria": "cpe:2.3:a:adobe:flash_player:*:*:*:*:*:chrome:*:*",
+                        "versionEndExcluding": "32.0.0.433",
+                        "matchCriteriaId": "1EDAAD3C-7A8E-422F-8CEA-0DDE460A617A"
+                    }
+                ]
+            },
+            {
+                "operator": "OR",
+                "negate": False,
+                "cpeMatch": [
+                    {
+                        "vulnerable": False,
+                        "criteria": "cpe:2.3:o:apple:macos:-:*:*:*:*:*:*:*",
+                        "matchCriteriaId": "387021A0-AF36-463C-A605-32EA7DAC172E"
+                    },
+                    {
+                        "vulnerable": False,
+                        "criteria": "cpe:2.3:o:google:chrome_os:-:*:*:*:*:*:*:*",
+                        "matchCriteriaId": "D32ACF6F-5FF7-4815-8EAD-4719F5FC9B79"
+                    },
+                    {
+                        "vulnerable": False,
+                        "criteria": "cpe:2.3:o:linux:linux_kernel:-:*:*:*:*:*:*:*",
+                        "matchCriteriaId": "703AF700-7A70-47E2-BC3A-7FD03B3CA9C1"
+                    },
+                    {
+                        "vulnerable": False,
+                        "criteria": "cpe:2.3:o:microsoft:windows:-:*:*:*:*:*:*:*",
+                        "matchCriteriaId": "A2572D17-1DE6-457B-99CC-64AFD54487EA"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "operator": "AND",
+        "nodes": [
+            {
+                "operator": "OR",
+                "negate": False,
+                "cpeMatch": [
+                    {
+                        "vulnerable": True,
+                        "criteria": "cpe:2.3:a:adobe:flash_player:*:*:*:*:*:edge:*:*",
+                        "versionEndExcluding": "32.0.0.387",
+                        "matchCriteriaId": "73ADC9AD-72BE-4471-AB55-D4510FC5DDD9"
+                    },
+                    {
+                        "vulnerable": True,
+                        "criteria": "cpe:2.3:a:adobe:flash_player:*:*:*:*:*:internet_explorer_11:*:*",
+                        "versionEndExcluding": "32.0.0.387",
+                        "matchCriteriaId": "E36979A3-3C4A-4217-A172-30CAA95C1C25"
+                    }
+                ]
+            },
+            {
+                "operator": "OR",
+                "negate": False,
+                "cpeMatch": [
+                    {
+                        "vulnerable": False,
+                        "criteria": "cpe:2.3:o:microsoft:windows_10:-:*:*:*:*:*:*:*",
+                        "matchCriteriaId": "21540673-614A-4D40-8BD7-3F07723803B0"
+                    },
+                    {
+                        "vulnerable": False,
+                        "criteria": "cpe:2.3:o:microsoft:windows_8.1:-:*:*:*:*:*:*:*",
+                        "matchCriteriaId": "E93068DB-549B-45AB-8E5C-00EB5D8B5CF8"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "operator": "AND",
+        "nodes": [
+            {
+                "operator": "OR",
+                "negate": False,
+                "cpeMatch": [
+                    {
+                        "vulnerable": False,
+                        "criteria": "cpe:2.3:o:linux:linux_kernel:-:*:*:*:*:*:*:*",
+                        "matchCriteriaId": "703AF700-7A70-47E2-BC3A-7FD03B3CA9C1"
+                    },
+                    {
+                        "vulnerable": False,
+                        "criteria": "cpe:2.3:o:opengroup:unix:-:*:*:*:*:*:*:*",
+                        "matchCriteriaId": "6A90CB3A-9BE7-475C-9E75-6ECAD2106302"
+                    }
+                ]
+            },
+            {
+                "operator": "OR",
+                "negate": False,
+                "cpeMatch": [
+                    {
+                        "vulnerable": True,
+                        "criteria": "cpe:2.3:a:veritas:netbackup:*:*:*:*:*:*:*:*",
+                        "versionEndIncluding": "10.1",
+                        "matchCriteriaId": "7FC0719C-6D19-4A91-9113-4E3CFE95E317"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "operator": "OR",
+        "negate": False,
+        "cpeMatch": [
+            {
+                "vulnerable": True,
+                "criteria": "cpe:2.3:a:eric_allman:sendmail:5.58:*:*:*:*:*:*:*",
+                "matchCriteriaId": "1D07F493-9C8D-44A4-8652-F28B46CBA27C"
+            }
+        ]
+    }
+]
+
+def traverse_nodes(nodes, current_expr, equations):
+    if not nodes:
+        return
+
+    if nodes[0].get('cpeMatch'):
+        match_ids = [cpe['matchCriteriaId'] for cpe in nodes[0]['cpeMatch']]
+        if current_expr:
+            new_expr = [f"{current_expr} AND {match_id}" for match_id in match_ids]
+        else:
+            new_expr = match_ids
+    else:
+        new_expr = []
+
+    for expr in new_expr:
+        if len(nodes) > 1:
+            traverse_nodes(nodes[1:], expr, equations)
+        else:
+            equations.append(expr)
+
+def generate_equations(configurations):
+    equations = []
+    for config in configurations:
+        if config['operator'] == 'AND':
+            traverse_nodes(config['nodes'], '', equations)
+        else:
+            for cpe in config['cpeMatch']:
+                equations.append(cpe['matchCriteriaId'])
+    return equations
+
+equations = generate_equations(configurations)
+for eq in equations:
+    print(eq)
