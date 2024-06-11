@@ -1,0 +1,149 @@
+from django.db import models
+
+class CVE(models.Model):
+    id = models.CharField(max_length=50, primary_key=True)
+    source_identifier = models.CharField(max_length=255)
+    published = models.DateTimeField()
+    last_modified = models.DateTimeField()
+    vuln_status = models.CharField(max_length=50)
+
+class Description(models.Model):
+    cve = models.ForeignKey(CVE, related_name='descriptions', on_delete=models.CASCADE)
+    lang = models.CharField(max_length=10)
+    value = models.TextField()
+
+class CVSSData(models.Model):
+    version = models.CharField(max_length=10)
+    vector_string = models.CharField(max_length=255)
+    attack_vector = models.CharField(max_length=50)
+    attack_complexity = models.CharField(max_length=50)
+    privileges_required = models.CharField(max_length=50)
+    user_interaction = models.CharField(max_length=50)
+    scope = models.CharField(max_length=50)
+    confidentiality_impact = models.CharField(max_length=50)
+    integrity_impact = models.CharField(max_length=50)
+    availability_impact = models.CharField(max_length=50)
+    base_score = models.FloatField()
+    base_severity = models.CharField(max_length=50)
+    exploitability_score = models.FloatField()
+    impact_score = models.FloatField()
+
+class Metric(models.Model):
+    cve = models.ForeignKey(CVE, related_name='metrics', on_delete=models.CASCADE)
+    source = models.CharField(max_length=255)
+    type = models.CharField(max_length=50)
+    cvss_data = models.ForeignKey(CVSSData, on_delete=models.CASCADE)
+
+class Weakness(models.Model):
+    cve = models.ForeignKey(CVE, related_name='weaknesses', on_delete=models.CASCADE)
+    source = models.CharField(max_length=255)
+    type = models.CharField(max_length=50)
+    lang = models.CharField(max_length=10)
+    value = models.CharField(max_length=50)
+
+class CPEMatch(models.Model):
+    criteria = models.CharField(max_length=255)
+    version_start_including = models.CharField(max_length=50, null=True, blank=True)
+    version_end_excluding = models.CharField(max_length=50, null=True, blank=True)
+    vulnerable = models.BooleanField()
+    match_criteria_id = models.CharField(max_length=255, unique=True)
+
+class Node(models.Model):
+    operator = models.CharField(max_length=10)
+    negate = models.BooleanField()
+    cpe_matches = models.ManyToManyField(CPEMatch, related_name='nodes')
+
+class Configuration(models.Model):
+    cve = models.ForeignKey(CVE, related_name='configurations', on_delete=models.CASCADE)
+    nodes = models.ManyToManyField(Node, related_name='configurations')
+    boolean_equation = models.TextField()  # To store the boolean equation
+
+import json
+from datetime import datetime
+from myapp.models import CVE, Description, Metric, CVSSData, Weakness, Configuration, Node, CPEMatch
+
+json_data = '''[PUT YOUR JSON DATA HERE]'''
+data = json.loads(json_data)
+
+for item in data:
+    cve_data = item['cve']
+
+    cve, created = CVE.objects.get_or_create(
+        id=cve_data['id'],
+        defaults={
+            'source_identifier': cve_data['sourceIdentifier'],
+            'published': datetime.fromisoformat(cve_data['published']),
+            'last_modified': datetime.fromisoformat(cve_data['lastModified']),
+            'vuln_status': cve_data['vulnStatus']
+        }
+    )
+
+    for desc in cve_data['descriptions']:
+        Description.objects.get_or_create(
+            cve=cve,
+            lang=desc['lang'],
+            defaults={'value': desc['value']}
+        )
+
+    for metric_data in cve_data.get('metrics', {}).get('cvssMetricV31', []):
+        cvss_data, created = CVSSData.objects.get_or_create(
+            version=metric_data['cvssData']['version'],
+            vector_string=metric_data['cvssData']['vectorString'],
+            attack_vector=metric_data['cvssData']['attackVector'],
+            attack_complexity=metric_data['cvssData']['attackComplexity'],
+            privileges_required=metric_data['cvssData']['privilegesRequired'],
+            user_interaction=metric_data['cvssData']['userInteraction'],
+            scope=metric_data['cvssData']['scope'],
+            confidentiality_impact=metric_data['cvssData']['confidentialityImpact'],
+            integrity_impact=metric_data['cvssData']['integrityImpact'],
+            availability_impact=metric_data['cvssData']['availabilityImpact'],
+            base_score=metric_data['cvssData']['baseScore'],
+            base_severity=metric_data['cvssData']['baseSeverity'],
+            exploitability_score=metric_data['exploitabilityScore'],
+            impact_score=metric_data['impactScore']
+        )
+
+        Metric.objects.get_or_create(
+            cve=cve,
+            source=metric_data['source'],
+            type=metric_data['type'],
+            defaults={'cvss_data': cvss_data}
+        )
+
+    for weakness_data in cve_data.get('weaknesses', []):
+        for desc in weakness_data['description']:
+            Weakness.objects.get_or_create(
+                cve=cve,
+                source=weakness_data['source'],
+                type=weakness_data['type'],
+                lang=desc['lang'],
+                defaults={'value': desc['value']}
+            )
+
+    for config in cve_data.get('configurations', []):
+        config_instance = Configuration.objects.create(cve=cve)
+
+        for node_data in config['nodes']:
+            node_instance = Node.objects.create(
+                operator=node_data['operator'],
+                negate=node_data['negate']
+            )
+
+            for cpe_match_data in node_data['cpeMatch']:
+                cpe_match, created = CPEMatch.objects.get_or_create(
+                    criteria=cpe_match_data['criteria'],
+                    defaults={
+                        'version_start_including': cpe_match_data.get('versionStartIncluding'),
+                        'version_end_excluding': cpe_match_data.get('versionEndExcluding'),
+                        'vulnerable': cpe_match_data['vulnerable'],
+                        'match_criteria_id': cpe_match_data['matchCriteriaId']
+                    }
+                )
+                node_instance.cpe_matches.add(cpe_match)
+
+            config_instance.nodes.add(node_instance)
+
+        # Calculate boolean equation based on configurations
+        boolean_equation = "your boolean equation logic here"  # Placeholder for the actual logic
+        config_instance.boolean_equation = boolean_equation
+        config_instance.save()
