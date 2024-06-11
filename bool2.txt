@@ -1,0 +1,35 @@
+from rest_framework import serializers
+from .models import BooleanExpression
+
+class BooleanExpressionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BooleanExpression
+        fields = ['id', 'expression', 'created_at']
+
+
+
+def evaluate_expression(expression, items):
+    """
+    Evaluate if the list of items satisfies the boolean expression.
+
+    :param expression: str, the boolean expression to evaluate
+    :param items: list of str, the list of items to check against the expression
+    :return: bool, True if the expression is satisfied, False otherwise
+    """
+    # Convert the items list to a set for faster membership testing
+    items_set = set(items)
+    
+    # Replace each matchCriteriaId in the expression with its evaluation
+    for item in items:
+        expression = expression.replace(item, 'True')
+    
+    # Replace any remaining IDs (not in items) with False
+    expression = re.sub(r'\b[0-9A-Fa-f-]{36}\b', 'False', expression)
+    
+    # Evaluate the final expression safely
+    try:
+        result = eval(expression)
+        return result
+    except Exception as e:
+        print(f"Error evaluating expression: {e}")
+        return False
