@@ -1,0 +1,86 @@
+ <div class="dropdown">
+        <input type="text" class="dropbtn" readonly placeholder="Select Options">
+        <div class="dropdown-content">
+            <label>
+                <input type="checkbox" value="Option 1"> Option 1
+            </label>
+            <label>
+                <input type="checkbox" value="Option 2"> Option 2
+            </label>
+            <label>
+                <input type="checkbox" value="Option 3"> Option 3
+            </label>
+        </div>
+    </div>
+
+
+.dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.dropbtn {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px;
+    font-size: 16px;
+    border: none;
+    cursor: pointer;
+    width: 200px;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: #f9f9f9;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1;
+    padding: 12px 16px;
+}
+
+.dropdown-content label {
+    display: block;
+    padding: 5px;
+    cursor: pointer;
+}
+
+.dropdown-content input {
+    margin-right: 10px;
+}
+
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+
+
+
+
+document.addEventListener('DOMContentLoaded', function () {
+    const dropdownContent = document.querySelector('.dropdown-content');
+    const dropbtn = document.querySelector('.dropbtn');
+    
+    dropbtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        dropdownContent.style.display = dropdownContent.style.display === 'block' ? 'none' : 'block';
+    });
+    
+    document.addEventListener('click', function (e) {
+        if (!dropbtn.contains(e.target) && !dropdownContent.contains(e.target)) {
+            dropdownContent.style.display = 'none';
+        }
+    });
+
+    const checkboxes = document.querySelectorAll('.dropdown-content input[type="checkbox"]');
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function () {
+            let selectedOptions = [];
+            checkboxes.forEach(cb => {
+                if (cb.checked) {
+                    selectedOptions.push(cb.value);
+                }
+            });
+            dropbtn.value = selectedOptions.join(', ');
+        });
+    });
+});
