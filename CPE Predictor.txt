@@ -1,0 +1,82 @@
+import pandas as pd
+from your_app.models import CVE, CPEMatchString, CPEEntry
+
+def prepare_data():
+    data = []
+    cves = CVE.objects.all()
+    for cve in cves:
+        cpe_match = cve.cpe_match
+        cpe_entry = cpe_match.cpe_entry
+        data.append({
+            'description': cve.description,
+            'cpe_name': cpe_entry.cpe_name
+        })
+    return pd.DataFrame(data)
+
+data = prepare_data()
+from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
+from sklearn.model_selection import train_test_split
+import pandas as pd
+import torch
+
+# Load dataset
+data = pd.read_csv('cve_dataset.csv')  # Assuming a CSV file with 'description' and 'software' columns
+descriptions = data['description'].tolist()
+software_labels = data['software'].tolist()
+
+# Preprocess data
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+
+def preprocess_function(examples):
+    return tokenizer(examples, padding='max_length', truncation=True)
+
+inputs = tokenizer(descriptions, padding=True, truncation=True, return_tensors="pt")
+labels = torch.tensor(software_labels)
+
+# Split data into training and validation sets
+train_inputs, val_inputs, train_labels, val_labels = train_test_split(inputs['input_ids'], labels, test_size=0.1)
+
+# Create a dataset class
+class CveDataset(torch.utils.data.Dataset):
+    def __init__(self, encodings, labels):
+        self.encodings = encodings
+        self.labels = labels
+
+    def __getitem__(self, idx):
+        item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
+        item['labels'] = torch.tensor(self.labels[idx])
+        return item
+
+    def __len__(self):
+        return len(self.labels)
+
+train_dataset = CveDataset(train_inputs, train_labels)
+val_dataset = CveDataset(val_inputs, val_labels)
+
+# Define model
+model = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=len(set(software_labels)))
+
+# Define training arguments
+training_args = TrainingArguments(
+    output_dir='./results',
+    num_train_epochs=3,
+    per_device_train_batch_size=8,
+    per_device_eval_batch_size=8,
+    warmup_steps=500,
+    weight_decay=0.01,
+    logging_dir='./logs',
+)
+
+# Create Trainer instance
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=train_dataset,
+    eval_dataset=val_dataset,
+)
+
+# Train model
+trainer.train()
+
+# Evaluate model
+trainer.evaluate()
