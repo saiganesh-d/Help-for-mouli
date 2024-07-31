@@ -80,3 +80,107 @@ trainer.train()
 
 # Evaluate model
 trainer.evaluate()
+
+
+
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
+from transformers import DataCollatorWithPadding
+from datasets import Dataset
+import torch
+
+# Prepare data
+data = prepare_data()
+X = data['description']
+y = data['cpe_names']
+
+# Split data into training and test sets
+train_texts, val_texts, train_labels, val_labels = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Load pre-trained tokenizer
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+
+# Tokenize the data
+train_encodings = tokenizer(train_texts.tolist(), truncation=True, padding=True)
+val_encodings = tokenizer(val_texts.tolist(), truncation=True, padding=True)
+
+# Convert to Hugging Face Dataset
+train_dataset = Dataset.from_dict({'input_ids': train_encodings['input_ids'], 'attention_mask': train_encodings['attention_mask'], 'labels': train_labels.tolist()})
+val_dataset = Dataset.from_dict({'input_ids': val_encodings['input_ids'], 'attention_mask': val_encodings['attention_mask'], 'labels': val_labels.tolist()})
+
+# Data Collator
+data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+
+# Load pre-trained BERT model
+model = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=len(set(y)))
+
+# Define training arguments
+training_args = TrainingArguments(
+    output_dir='./results',
+    evaluation_strategy="epoch",
+    learning_rate=2e-5,
+    per_device_train_batch_size=16,
+    per_device_eval_batch_size=16,
+    num_train_epochs=3,
+    weight_decay=0.01,
+)
+
+# Define Trainer
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=train_dataset,
+    eval_dataset=val_dataset,
+    tokenizer=tokenizer,
+    data_collator=data_collator
+)
+
+# Train the model
+trainer.train()
+
+# Save the model
+model.save_pretrained('path_to_model/cpe_prediction_model')
+tokenizer.save_pretrained('path_to_model/cpe_prediction_tokenizer')
+
+from django.shortcuts import render
+from django.http import JsonResponse
+import torch
+from transformers import BertTokenizer, BertForSequenceClassification
+from .models import CPEEntry
+
+# Load the trained model and tokenizer
+model = BertForSequenceClassification.from_pretrained('path_to_model/cpe_prediction_model')
+tokenizer = BertTokenizer.from_pretrained('path_to_model/cpe_prediction_tokenizer')
+model.eval()
+
+def predict_cpe(request):
+    if request.method == 'POST':
+        description = request.POST.get('description')
+        if description:
+            # Tokenize input description
+            inputs = tokenizer(description, return_tensors='pt', truncation=True, padding=True)
+
+            # Predict the CPE names
+            with torch.no_grad():
+                outputs = model(**inputs)
+                predicted_labels = torch.argmax(outputs.logits, dim=-1)
+
+            predicted_cpe_names = predicted_labels.numpy().tolist()
+
+            # Fetch the corresponding CPEEntry objects from the database
+            cpe_entries = CPEEntry.objects.filter(cpe_name__in=predicted_cpe_names)
+            cpe_data = [{'cpe_name': cpe.cpe_name, 'cpe_name_id': cpe.cpe_name_id} for cpe in cpe_entries]
+
+            return JsonResponse({
+                'status': 'success',
+                'cpe_entries': cpe_data
+            })
+        else:
+            return JsonResponse({'status': 'error', 'message': 'Description is required'}, status=400)
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
+
+
+
+
+
