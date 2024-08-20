@@ -1,0 +1,26 @@
+var $field1var = $("#field1");
+var $field2var = $("#field2");
+var $field2options = $field2var.find("option");
+
+$field2var.html($field2options.filter('[value=""]')); // Initialize with the placeholder
+
+$field1var.on('change', function() {
+    var selectedValue = this.value;
+    var matchingOptions = $field2options.filter('[parent="' + selectedValue + '"], [value=""]');
+    
+    if (matchingOptions.length > 1) { // More than just the placeholder option found
+        if ($field2var.is('input')) {
+            // Replace input with select if it was previously changed
+            $field2var.replaceWith('<select id="field2"></select>');
+            $field2var = $("#field2");
+        }
+        $field2var.html(matchingOptions);
+        $('#field2 option[value=""]').prop('selected', true);
+    } else {
+        if ($field2var.is('select')) {
+            // Replace select with input
+            $field2var.replaceWith('<input type="text" id="field2" placeholder="Enter value">');
+            $field2var = $("#field2");
+        }
+    }
+});
