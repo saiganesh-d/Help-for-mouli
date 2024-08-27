@@ -60,3 +60,28 @@ doc.add_package(linux_pkg)
 doc.save("example.spdx")
 ```
 Note: This is just a basic example, and you may need to add more information to the SPDX document depending on your specific use case.
+
+
+from spdx.document import Document
+from spdx.creationinfo import Tool, CreationInfo
+from spdx.package import Package
+from spdx.version import Version
+from spdx.writers.json import write_document
+from .models import Library
+
+def generate_spdx_sbom():
+    doc = Document()
+    doc.version = Version(2, 2)
+    doc.creation_info = CreationInfo()
+    doc.creation_info.add_tool(Tool('Django SBOM Generator'))
+    doc.name = "MyProject SBOM"
+    
+    # Create an SPDX package for each library
+    for library in Library.objects.all():
+        package = Package(name=library.name, version=library.version)
+        package.license_declared = library.license or "NOASSERTION"
+        doc.packages.append(package)
+    
+    # Write the SPDX document to a JSON file (you can also use XML or RDF)
+    with open('sbom.json', 'w') as f:
+        write_document(doc, f)
