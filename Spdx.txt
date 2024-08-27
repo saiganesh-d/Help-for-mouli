@@ -1,0 +1,62 @@
+To create an SBOM (Software Bill of Materials) in SPDX (Software Package Data Exchange) format using Python, you can follow these steps:
+
+1. Install the `spdx-tools` library using pip: `pip install spdx-tools`
+2. Import the necessary modules: `from spdx_tools import SPDXDocument, SPDXPackage`
+3. Create an SPDX document object: `doc = SPDXDocument()`
+4. Create an SPDX package object for OpenSSL 1.1.0:
+```
+openssl_pkg = SPDXPackage(
+    name="OpenSSL",
+    version="1.1.0",
+    download_location="(link unavailable)",
+    homepage="(link unavailable)",
+    license_declared="OpenSSL License",
+    description="The OpenSSL Project is a collaborative effort to develop a robust, commercial-grade, full-featured, and Open Source toolkit implementing the Secure Sockets Layer (SSL v2/v3) and Transport Layer Security (TLS v1) protocols."
+)
+```
+1. Create an SPDX package object for Linux 4.0:
+```
+linux_pkg = SPDXPackage(
+    name="Linux",
+    version="4.0",
+    download_location="(link unavailable)",
+    homepage="(link unavailable)",
+    license_declared="GPL-2.0",
+    description="The Linux kernel is an open-source Unix-like operating system kernel."
+)
+```
+1. Add the packages to the SPDX document: `doc.add_package(openssl_pkg)` and `doc.add_package(linux_pkg)`
+2. Save the SPDX document to a file: `doc.save("example.spdx")`
+
+This will create an SPDX file named "example.spdx" containing the SBOM information for OpenSSL 1.1.0 and Linux 4.0.
+
+Here's the complete code example:
+```
+from spdx_tools import SPDXDocument, SPDXPackage
+
+doc = SPDXDocument()
+
+openssl_pkg = SPDXPackage(
+    name="OpenSSL",
+    version="1.1.0",
+    download_location="(link unavailable)",
+    homepage="(link unavailable)",
+    license_declared="OpenSSL License",
+    description="The OpenSSL Project is a collaborative effort to develop a robust, commercial-grade, full-featured, and Open Source toolkit implementing the Secure Sockets Layer (SSL v2/v3) and Transport Layer Security (TLS v1) protocols."
+)
+
+linux_pkg = SPDXPackage(
+    name="Linux",
+    version="4.0",
+    download_location="(link unavailable)",
+    homepage="(link unavailable)",
+    license_declared="GPL-2.0",
+    description="The Linux kernel is an open-source Unix-like operating system kernel."
+)
+
+doc.add_package(openssl_pkg)
+doc.add_package(linux_pkg)
+
+doc.save("example.spdx")
+```
+Note: This is just a basic example, and you may need to add more information to the SPDX document depending on your specific use case.
