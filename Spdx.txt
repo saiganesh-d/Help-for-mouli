@@ -85,3 +85,62 @@ def generate_spdx_sbom():
     # Write the SPDX document to a JSON file (you can also use XML or RDF)
     with open('sbom.json', 'w') as f:
         write_document(doc, f)
+I can guide you through creating an SPDX SBOM for your software components using Python. Here's a step-by-step example:
+
+*Install the required library*
+```
+bash
+pip install spdx-tools
+```
+*Create an SPDX document*
+```
+from spdx_tools import SPDXDocument, SPDXPackage
+
+# Create a new SPDX document
+doc = SPDXDocument()
+
+# Set the document's name and version
+doc.name = "My Software Bill of Materials"
+doc.version = "1.0"
+
+# Add packages to the document
+def add_package(name, version, license):
+    pkg = SPDXPackage(
+        name=name,
+        version=version,
+        download_location=f"(link unavailable)",
+        homepage=f"(link unavailable)",
+        license_declared=license,
+        description=f"{name} is a software package."
+    )
+    doc.add_package(pkg)
+
+# Add your software components
+add_package("OpenSSL", "1.1.1a", "OpenSSL License")
+add_package("Linux", "4.0", "GPL-2.0")
+
+# Save the SPDX document to a file
+doc.save("my_sbom.spdx")
+```
+This code creates an SPDX document with two packages: OpenSSL 1.1.1a and Linux 4.0. You can add more packages by calling the `add_package` function.
+
+*Note:*
+
+- Replace the `download_location` and `homepage` URLs with the actual values for your software components.
+- Update the `license` field with the correct license identifier for each package.
+- You can customize the `description` field as needed.
+
+*Output:*
+
+The code generates an `my_sbom.spdx` file in the current directory, containing the SPDX SBOM for your software components.
+
+*Verify the SPDX document:*
+
+You can use the `spdx-tools` library to validate the generated SPDX document:
+```
+bash
+spdx-validate my_sbom.spdx
+```
+This command checks the document's format and structure against the SPDX specification.
+
+That's it! You now have an SPDX SBOM for your software components using Python.
