@@ -44,3 +44,38 @@ with open('config_mapping_with_paths.txt', 'w') as output_file:
     for c_file, config_option in config_map.items():
         output_file.write(f"{c_file} is controlled by {config_option}\n")
         print(f"{c_file} is controlled by {config_option}")
+
+
+
+
+from django.db import models
+
+class KernelVersion(models.Model):
+    version = models.CharField(max_length=20, unique=True)
+
+    def __str__(self):
+        return self.version
+
+class CFile(models.Model):
+    file_path = models.TextField(unique=True)  # Full path to the .c file
+
+    def __str__(self):
+        return self.file_path
+
+class ConfigOption(models.Model):
+    config_name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.config_name
+
+class KernelConfig(models.Model):
+    kernel_version = models.ForeignKey(KernelVersion, on_delete=models.CASCADE, related_name='configs')
+    c_file = models.ForeignKey(CFile, on_delete=models.CASCADE, related_name='configs')
+    config_option = models.ForeignKey(ConfigOption, on_delete=models.CASCADE, related_name='configs')
+
+    class Meta:
+        unique_together = ('kernel_version', 'c_file', 'config_option')
+
+    def __str__(self):
+        return f"{self.kernel_version.version} -> {self.c_file.file_path} -> {self.config_option.config_name}"
+
