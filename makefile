@@ -79,3 +79,92 @@ class KernelConfig(models.Model):
     def __str__(self):
         return f"{self.kernel_version.version} -> {self.c_file.file_path} -> {self.config_option.config_name}"
 
+
+
+import os
+import re
+import django
+from pathlib import Path
+
+# Initialize Django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'your_project_name.settings')
+django.setup()
+
+from your_app.models import KernelVersion, CFile, ConfigOption, KernelConfig
+
+# Regular expression to match lines with CONFIG options
+config_pattern = re.compile(r'obj-\$\((CONFIG_[A-Z0-9_]+)\)\s*\+=\s*([a-zA-Z0-9_\-]+)\.o')
+
+def find_makefiles(directory):
+    """Find all Makefiles in the kernel source directory."""
+    makefiles = []
+    for root, _, files in os.walk(directory):
+        for file in files:
+            if file == "Makefile":
+                makefiles.append(os.path.join(root, file))
+    return makefiles
+
+def parse_makefile(makefile_path, kernel_version_obj):
+    """Parse a Makefile and extract CONFIG options with full path of corresponding .c files."""
+    makefile_dir = os.path.dirname(makefile_path)  # Get the directory of the Makefile
+    with open(makefile_path, 'r') as makefile:
+        for line in makefile:
+            match = config_pattern.search(line)
+            if match:
+                config_option_name = match.group(1)
+                c_file_name = match.group(2) + ".c"
+                # Get the full relative path of the .c file
+                full_c_file_path = os.path.join(makefile_dir, c_file_name)
+
+                # Save the extracted data to the database
+                save_to_db(kernel_version_obj, full_c_file_path, config_option_name)
+
+def save_to_db(kernel_version_obj, full_c_file_path, config_option_name):
+    """Save the kernel version, C file path, and CONFIG option to the database."""
+
+    # Retrieve or create the CFile object
+    c_file_obj, created = CFile.objects.get_or_create(file_path=full_c_file_path)
+
+    # Retrieve or create the ConfigOption object
+    config_option_obj, created = ConfigOption.objects.get_or_create(config_name=config_option_name)
+
+    # Check if the combination of kernel version, c_file, and config_option already exists
+    if not KernelConfig.objects.filter(kernel_version=kernel_version_obj, c_file=c_file_obj, config_option=config_option_obj).exists():
+        # Create a new KernelConfig entry
+        KernelConfig.objects.create(kernel_version=kernel_version_obj, c_file=c_file_obj, config_option=config_option_obj)
+
+def process_kernel_version(root_dir, kernel_version_name):
+    """Process a specific kernel version and save its configs to the database."""
+    # Retrieve or create the KernelVersion object
+    kernel_version_obj, created = KernelVersion.objects.get_or_create(version=kernel_version_name)
+    
+    # Find all Makefiles in the kernel source directory
+    makefiles = find_makefiles(root_dir)
+
+    # Parse each Makefile to extract CONFIG options
+    for makefile in makefiles:
+        parse_makefile(makefile, kernel_version_obj)
+
+def main():
+    # Root directory where different kernel versions are stored
+    base_dir = "/path/to/downloaded/kernels"  # Change this to the location of the kernel source code
+    
+    # Loop through directories like v3.x, v4.x, v5.x, v6.x
+    for version_dir in os.listdir(base_dir):
+        version_path = os.path.join(base_dir, version_dir)
+        
+        # Only process directories
+        if os.path.isdir(version_path):
+            # Loop through individual kernel versions inside the version directory
+            for kernel_version_dir in os.listdir(version_path):
+                kernel_path = os.path.join(version_path, kernel_version_dir)
+                
+                # Process the kernel version if it's a directory
+                if os.path.isdir(kernel_path):
+                    print(f"Processing kernel version: {kernel_version_dir}")
+                    process_kernel_version(kernel_path, kernel_version_dir)
+
+if __name__ == "__main__":
+    main()
+
+
