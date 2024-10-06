@@ -1,0 +1,328 @@
+Certainly! Below are detailed test cases and scenarios for the **Knowledge Base Import Functionality** of your Vulnerability Management System. Each test case includes a unique identifier, a description, preconditions, test steps, and expected outcomes.
+
+---
+
+### Test Case 1: Successful Import of Valid CVEs
+
+**Test Case ID:** TC-001  
+**Description:** Test the import functionality with a valid Excel file containing CVE data.  
+**Preconditions:** User is logged in, and the application is running.  
+**Test Steps:**
+1. Navigate to the **Knowledge Base** section.
+2. Click on the **Import CVEs** button.
+3. Select a valid Excel file containing CVE data.
+4. Click the **Submit** button.
+
+**Expected Outcome:**  
+- The system processes the file without errors.
+- Existing CVEs are updated with the new status and comments.
+- New CVEs are created in the database.
+- A success message is displayed, confirming the import.
+
+---
+
+### Test Case 2: Import with Existing CVEs
+
+**Test Case ID:** TC-002  
+**Description:** Test the import functionality when the Excel file contains CVEs that already exist in the database.  
+**Preconditions:** At least one CVE from the Excel file exists in the database.  
+**Test Steps:**
+1. Navigate to the **Knowledge Base** section.
+2. Click on the **Import CVEs** button.
+3. Select an Excel file with existing CVEs.
+4. Click the **Submit** button.
+
+**Expected Outcome:**  
+- The system updates the status and comments of the existing CVEs.
+- No new CVEs are created for duplicates.
+- A success message is displayed, indicating the updates were made.
+
+---
+
+### Test Case 3: Import of New CVEs
+
+**Test Case ID:** TC-003  
+**Description:** Test the import functionality with an Excel file that contains only new CVEs.  
+**Preconditions:** None of the CVEs in the Excel file exist in the database.  
+**Test Steps:**
+1. Navigate to the **Knowledge Base** section.
+2. Click on the **Import CVEs** button.
+3. Select an Excel file with new CVEs.
+4. Click the **Submit** button.
+
+**Expected Outcome:**  
+- New CVEs are created in the database.
+- A success message is displayed, confirming the new entries were created.
+
+---
+
+### Test Case 4: Import with Invalid Data Format
+
+**Test Case ID:** TC-004  
+**Description:** Test the import functionality with an Excel file that has an invalid format.  
+**Preconditions:** User is logged in.  
+**Test Steps:**
+1. Navigate to the **Knowledge Base** section.
+2. Click on the **Import CVEs** button.
+3. Select an Excel file with an invalid format (e.g., missing headers, incorrect data types).
+4. Click the **Submit** button.
+
+**Expected Outcome:**  
+- The system fails to process the file.
+- An error message is displayed indicating the issue with the file format.
+- No changes are made to the database.
+
+---
+
+### Test Case 5: Import with Missing CVE Information
+
+**Test Case ID:** TC-005  
+**Description:** Test the import functionality with an Excel file that has missing CVE information (e.g., missing CVE ID, description).  
+**Preconditions:** User is logged in.  
+**Test Steps:**
+1. Navigate to the **Knowledge Base** section.
+2. Click on the **Import CVEs** button.
+3. Select an Excel file with missing CVE information.
+4. Click the **Submit** button.
+
+**Expected Outcome:**  
+- The system processes the file but skips the entries with missing information.
+- A warning message is displayed listing the CVEs that could not be imported due to missing information.
+- Existing CVEs remain unchanged.
+
+---
+
+### Test Case 6: JIRA Ticket Association
+
+**Test Case ID:** TC-006  
+**Description:** Test the import functionality when CVEs are associated with JIRA tickets.  
+**Preconditions:** The Excel file contains CVEs with JIRA ticket information.  
+**Test Steps:**
+1. Navigate to the **Knowledge Base** section.
+2. Click on the **Import CVEs** button.
+3. Select an Excel file containing CVEs with associated JIRA ticket information.
+4. Click the **Submit** button.
+
+**Expected Outcome:**  
+- The system updates the dashboard with the JIRA ticket status.
+- Appropriate updates are made to the CVEs in the application.
+- A success message is displayed confirming the JIRA updates.
+
+---
+
+### Test Case 7: Large File Import
+
+**Test Case ID:** TC-007  
+**Description:** Test the import functionality with a large Excel file containing multiple CVEs.  
+**Preconditions:** User is logged in, and the application is capable of handling large files.  
+**Test Steps:**
+1. Navigate to the **Knowledge Base** section.
+2. Click on the **Import CVEs** button.
+3. Select a large Excel file with valid CVEs.
+4. Click the **Submit** button.
+
+**Expected Outcome:**  
+- The system processes the file without performance issues.
+- All existing CVEs are updated and new CVEs are created as needed.
+- A success message is displayed upon completion.
+
+---
+
+### Test Case 8: User Permissions
+
+**Test Case ID:** TC-008  
+**Description:** Test the import functionality with a user that lacks the necessary permissions.  
+**Preconditions:** User is logged in with restricted permissions.  
+**Test Steps:**
+1. Navigate to the **Knowledge Base** section.
+2. Click on the **Import CVEs** button.
+3. Select a valid Excel file.
+4. Click the **Submit** button.
+
+**Expected Outcome:**  
+- The system denies the import action.
+- An error message is displayed indicating insufficient permissions.
+- No changes are made to the database.
+
+---
+
+### Test Case 9: Application Error Handling
+
+**Test Case ID:** TC-009  
+**Description:** Test the application's handling of unexpected errors during the import process.  
+**Preconditions:** The application is running normally.  
+**Test Steps:**
+1. Navigate to the **Knowledge Base** section.
+2. Click on the **Import CVEs** button.
+3. Simulate an unexpected error during the import (e.g., database connection issue).
+4. Click the **Submit** button.
+
+**Expected Outcome:**  
+- The application displays a user-friendly error message.
+- The system logs the error details for troubleshooting.
+- No changes are made to the database.
+
+---
+
+These test cases should provide a comprehensive overview of different scenarios for testing the **Knowledge Base Import Functionality** in your Vulnerability Management System. Each case is designed to validate different aspects of the feature, ensuring it works as intended under various conditions.
+Certainly! Below is a professional documentation outline for the **Vulnerability Management System Application** feature related to importing Knowledge Base function, specifically focusing on how it manages Common Vulnerabilities and Exposures (CVEs) using Django.
+
+---
+
+# Vulnerability Management System Documentation
+
+## Table of Contents
+
+1. **Introduction**
+   - Purpose
+   - Scope
+   - Audience
+
+2. **Feature Overview**
+   - Knowledge Base Import Functionality
+   - CVE Management Process
+
+3. **System Architecture**
+   - Overview of Django Framework
+   - Database Structure
+
+4. **Implementation Details**
+   - Importing CVEs from Excel
+   - CVE Status Update Logic
+   - JIRA Integration
+   - Dashboard Updates
+
+5. **Usage Instructions**
+   - Importing CVEs
+   - Viewing CVE Status
+   - Accessing Dashboard Information
+
+6. **Testing**
+   - Test Cases
+   - Validation of Functionality
+
+7. **Future Enhancements**
+   - Suggested Features
+
+8. **Conclusion**
+   - Summary of Achievements
+   - Acknowledgments
+
+---
+
+## 1. Introduction
+
+### Purpose
+This document outlines the implementation of the Knowledge Base import functionality within the Vulnerability Management System, built on the Django framework. It details how the system processes Common Vulnerabilities and Exposures (CVEs) from Excel files, updates their status, and integrates with JIRA for enhanced management and reporting.
+
+### Scope
+This document covers:
+- The overall functionality of importing CVEs.
+- The methodology used to update existing CVEs.
+- Integration with JIRA for tracking and updates.
+- Dashboard features related to CVE management.
+
+### Audience
+This documentation is intended for:
+- Developers and engineers involved in maintaining the Vulnerability Management System.
+- Project managers overseeing the application’s development and deployment.
+- Users who will utilize the system for vulnerability management.
+
+---
+
+## 2. Feature Overview
+
+### Knowledge Base Import Functionality
+The Knowledge Base import feature allows users to import CVE records from Excel files, ensuring the application is updated with the latest vulnerability information.
+
+### CVE Management Process
+1. **Import CVE Data:** Users upload an Excel file containing CVE data.
+2. **Check Existing CVEs:** The system checks if each CVE exists in the database.
+3. **Update or Create Entries:**
+   - If a CVE exists, the system updates its status and comments.
+   - If a CVE does not exist, a new entry is created.
+4. **JIRA Integration:** If a JIRA ticket is associated with a CVE, the system updates the dashboard accordingly.
+
+---
+
+## 3. System Architecture
+
+### Overview of Django Framework
+The application is built using the Django web framework, which provides a robust environment for building web applications with features like ORM, user authentication, and security measures.
+
+### Database Structure
+- **CVE Model:** Represents each CVE with fields for ID, description, status, comments, and associated JIRA ticket.
+- **JIRA Model:** Represents JIRA tickets with fields for ID, status, and related CVEs.
+
+---
+
+## 4. Implementation Details
+
+### Importing CVEs from Excel
+- **File Upload:** Users can upload an Excel file containing CVEs using a user-friendly interface.
+- **Data Parsing:** The application utilizes the `pandas` library to read and parse the Excel file.
+
+### CVE Status Update Logic
+- **Database Query:** For each CVE, the application queries the database to check if it already exists.
+- **Update Existing CVEs:** If found, the application updates the CVE’s status and any comments provided in the Excel file.
+
+### JIRA Integration
+- **Ticket Check:** The application checks for associated JIRA tickets for each CVE.
+- **Dashboard Update:** If a JIRA ticket exists, the application updates the dashboard to reflect the current status and comments.
+
+### Dashboard Updates
+- The dashboard displays the current status of CVEs, including newly created entries and updates to existing ones.
+
+---
+
+## 5. Usage Instructions
+
+### Importing CVEs
+1. Navigate to the **Knowledge Base** section of the application.
+2. Click on the **Import CVEs** button.
+3. Upload the Excel file containing the CVEs.
+4. Click **Submit** to begin the import process.
+
+### Viewing CVE Status
+- After import, navigate to the **CVE Management** section to view the updated status and comments for each CVE.
+
+### Accessing Dashboard Information
+- The dashboard provides a summary of the CVEs, including statuses and links to associated JIRA tickets.
+
+---
+
+## 6. Testing
+
+### Test Cases
+1. **Test Import with Valid Data:**
+   - Upload an Excel file with valid CVEs.
+   - Verify that existing CVEs are updated and new ones are created.
+
+2. **Test Import with Invalid Data:**
+   - Upload an Excel file with invalid or malformed data.
+   - Verify that the application handles errors gracefully.
+
+### Validation of Functionality
+- Each feature has been tested in a staging environment to ensure reliability and performance under various conditions.
+
+---
+
+## 7. Future Enhancements
+
+- **Bulk Actions:** Implement functionality for bulk status updates of CVEs.
+- **Enhanced JIRA Integration:** Provide deeper integration with JIRA for better tracking of ticket statuses.
+- **Reporting Features:** Develop reporting tools to analyze trends in CVE management.
+
+---
+
+## 8. Conclusion
+
+### Summary of Achievements
+The implementation of the Knowledge Base import functionality has significantly enhanced the capability of the Vulnerability Management System. By allowing users to easily import CVEs, the system ensures that organizations can keep up with emerging vulnerabilities effectively.
+
+### Acknowledgments
+Thanks to the development team for their contributions and to the stakeholders for their support throughout the project.
+
+---
+
+This documentation provides a comprehensive overview of how the Knowledge Base import functionality was implemented in the Vulnerability Management System. Feel free to adjust any sections or details to fit your specific project requirements.
