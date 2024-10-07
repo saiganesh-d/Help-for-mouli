@@ -1,3 +1,5 @@
+config_pattern = re.compile(r'\$\((CONFIG_[A-Za-z0-9_]+)\)\s*:=\s*(\w+)\.o')
+
 import os
 import re
 
