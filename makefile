@@ -166,6 +166,67 @@ def main():
                     print(f"Processing kernel version: {kernel_version_dir}")
                     process_kernel_version(kernel_path, kernel_version_dir)
 
+
+import tarfile
+import time
+import os
+
+def extract_tar_gz_skip_symlinks(file_path, extract_path):
+    """
+    Extracts a .tar.gz or .tar file to a specified directory, skipping symbolic links if they cannot be created.
+    Calculates the time taken for extraction.
+    
+    :param file_path: Path to the .tar.gz or .tar file
+    :param extract_path: Directory where the files should be extracted
+    :return: Time taken for extraction in seconds
+    """
+    # Start time to calculate how long the extraction takes
+    start_time = time.time()
+
+    try:
+        # Check if the file is a valid tar file
+        if tarfile.is_tarfile(file_path):
+            with tarfile.open(file_path, 'r:gz') as tar:
+                # Verbose output: list of files to extract
+                print(f"Extracting files from {file_path}...")
+
+                # Extract each file manually to handle symbolic links and errors
+                for member in tar.getmembers():
+                    try:
+                        # Check if the member is a symbolic link
+                        if member.issym() or member.islnk():
+                            print(f"Skipping symbolic link: {member.name}")
+                            continue  # Skip symbolic links
+
+                        # Otherwise, extract the file
+                        tar.extract(member, path=extract_path)
+                        print(f"Extracted: {member.name}")
+                    except Exception as e:
+                        print(f"Error extracting {member.name}: {e}")
+        
+        else:
+            print(f"Error: {file_path} is not a valid tar file.")
+            return None
+
+    except tarfile.TarError as e:
+        print(f"TarError occurred: {e}")
+        return None
+
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return None
+    
+    # End time after extraction is complete
+    end_time = time.time()
+    
+    # Calculate the total time taken in seconds
+    extraction_time = end_time - start_time
+    
+    print(f"Extraction complete. Time taken: {extraction_time:.2f} seconds")
+    
+    return extraction_time
+
+
 if __name__ == "__main__":
     main()
 
