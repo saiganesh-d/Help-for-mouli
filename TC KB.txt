@@ -1,0 +1,41 @@
+Below is the **structured test case format** for easy copy-paste into Excel. Each test case is numbered, and the columns are formatted as:
+
+**Test Case ID | Test Scenario | Test Steps | Expected Result**
+
+You can paste this into Excel directly.
+
+---
+
+| **Test Case ID** | **Test Scenario**                              | **Test Steps**                                                                                   | **Expected Result**                                          |
+|------------------|-----------------------------------------------|------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
+| TC_001          | Valid Excel Import with Mandatory Column Only | Upload Excel containing only "CVE ID" column with valid CVE IDs.                               | System imports file, validates CVEs, no other updates made. |
+| TC_002          | Valid Excel Import with Complete Details      | Upload Excel with all fields (CVE ID, Comments, Jira Ticket, etc.) for valid CVEs.             | System updates fields and logs changes in journey.          |
+| TC_003          | Update Comments, Jira, and Starc Tickets      | Upload Excel updating only Comments, Jira, and Starc Ticket fields.                            | System updates specified fields and logs changes.           |
+| TC_004          | Partial Update with Missing Optional Columns  | Upload Excel containing only CVE ID, Comments, and Tool State.                                 | Only specified fields updated; others remain unchanged.     |
+| TC_005          | New CVE IDs Not Present in Table              | Upload Excel with CVE IDs not in the current release.                                          | System rejects new CVEs and logs an appropriate error.      |
+| TC_006          | Case Insensitive CVE Matching                 | Upload Excel with case differences in CVE IDs (e.g., cve-2024-1234 vs CVE-2024-1234).          | System matches and updates CVEs correctly.                  |
+| TC_007          | Update “Fixed In” and “Tool State” Fields     | Upload Excel with updates to Fixed In and Tool State fields for valid CVEs.                    | Fields are updated, and changes logged in the journey.      |
+| TC_008          | Missing CVE ID Column                        | Upload Excel missing the "CVE ID" column.                                                     | Import fails with an error: "CVE ID column is mandatory."   |
+| TC_009          | Blank Rows or Missing CVE ID                 | Upload Excel containing rows with blank CVE IDs.                                              | Rows skipped, errors logged for blank CVE IDs.              |
+| TC_010          | Invalid CVE ID Format                        | Upload Excel with invalid CVE formats like `INVALID-CVE`.                                     | System rejects invalid CVEs and logs validation errors.     |
+| TC_011          | Duplicate CVE IDs in Excel File              | Upload Excel with duplicate CVE IDs.                                                          | First instance processed; duplicates ignored with warnings. |
+| TC_012          | Blank File or Non-Excel Format               | Upload a blank file or unsupported format (e.g., .csv, .txt).                                  | Import fails, error: "Invalid file format."                 |
+| TC_013          | Large Excel with Mixed Valid/Invalid Data     | Upload Excel with valid CVEs, invalid CVEs, and missing CVE ID rows.                           | Valid rows processed; errors logged for invalid rows.       |
+| TC_014          | Empty Fields for Optional Columns             | Upload Excel where all fields except CVE ID are blank.                                         | No updates performed; file processes without errors.        |
+| TC_015          | Simultaneous Updates to Same CVE              | Upload two Excel files simultaneously updating the same CVE.                                   | Changes applied sequentially and logged in the journey.     |
+| TC_016          | Malicious Input in Comments or Tickets        | Upload Excel with special characters/scripts in Comments or Ticket fields.                    | Input sanitized, injection prevented, and logged as error.  |
+| TC_017          | Invalid “Tool State” Value                   | Upload Excel with an invalid value in Tool State (e.g., Unknown).                              | System rejects invalid state, logs appropriate errors.      |
+| TC_018          | Duplicate CVEs Across Releases               | Upload Excel where CVE ID appears in multiple releases.                                        | System updates only the specific release's details.         |
+| TC_019          | Exceeding Row Limit in Excel                 | Upload Excel exceeding allowed row limit (e.g., 10,000 rows).                                  | Import rejected with error: "Row limit exceeded."           |
+| TC_020          | Excel with Valid and Invalid Columns          | Upload Excel with invalid column names and some valid data.                                    | System processes valid columns, skips invalid ones.         |
+| TC_021          | Journey Integrity with Sequential Updates     | Update fields for a CVE multiple times (e.g., Comments updated twice in sequence).             | System logs all changes sequentially in the journey.        |
+| TC_022          | Invalid “Fixed In” Release                   | Excel contains invalid release version in “Fixed In” field.                                    | System rejects invalid version and logs errors.             |
+
+---
+
+### Instructions to Paste into Excel:
+1. Open Excel.  
+2. Copy the above table and paste it into Excel.  
+3. Excel will automatically recognize columns (`Test Case ID`, `Test Scenario`, etc.) and format the data accordingly.  
+
+Let me know if further adjustments are needed!
