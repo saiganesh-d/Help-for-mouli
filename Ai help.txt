@@ -1,0 +1,161 @@
+import psycopg2
+import nltk
+import string
+import os
+from collections import Counter
+from nltk.corpus import stopwords, wordnet
+from fuzzywuzzy import process
+from sentence_transformers import SentenceTransformer
+import faiss
+import numpy as np
+import pandas as pd
+import spacy
+
+# Load NLP models
+nltk.download("stopwords")
+nltk.download("wordnet")
+nlp = spacy.load("en_core_web_sm")
+stop_words = set(stopwords.words("english"))
+punctuation = set(string.punctuation)
+
+# ✅ Step 1: Fetch CVE Data from PostgreSQL
+def fetch_cve_data():
+    conn = psycopg2.connect(
+        dbname="your_db",
+        user="your_user",
+        password="your_password",
+        host="your_host",
+        port="your_port"
+    )
+    cursor = conn.cursor()
+
+    query = """
+    WITH applicable_cpes AS (
+        SELECT 
+            cpe_match.match_criteria_id,
+            STRING_AGG(DISTINCT cpeentry.cpe_name, ', ') AS applicable_cpe_names
+        FROM cpe_match
+        JOIN cpeentry ON cpe_match.match_criteria_id = cpeentry.cpe_name_id
+        GROUP BY cpe_match.match_criteria_id
+    )
+
+    SELECT 
+        cve.id AS cve_id,
+        cve.source_identifier,
+        cve.published AS published_date,
+        cve.last_modified AS last_modified_date,
+        cve.vuln_status,
+        cvss.base_score,
+        cvss.base_severity AS severity,
+        cvex.expression AS match_criteria_expression,
+        ac.applicable_cpe_names,
+        STRING_AGG(DISTINCT cve_references.ref_url, ', ') AS references
+    FROM cve
+    LEFT JOIN cvssdata cvss ON cve.id = cvss.cve_id
+    LEFT JOIN cveconfigureexpressions cvex ON cve.id = cvex.cve_id
+    LEFT JOIN applicable_cpes ac ON cvex.expression LIKE '%' || ac.match_criteria_id || '%'
+    LEFT JOIN cvereferences cve_references ON cve.id = cve_references.cve_id
+    GROUP BY cve.id, cve.source_identifier, cve.published, cve.last_modified, cve.vuln_status, 
+             cvss.base_score, cvss.base_severity, cvex.expression, ac.applicable_cpe_names;
+    """
+
+    cursor.execute(query)
+    data = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    columns = [
+        "cve_id", "source_identifier", "published_date", "last_modified_date", "vuln_status",
+        "base_score", "severity", "match_criteria_expression", "applicable_cpe_names", "references"
+    ]
+    df = pd.DataFrame(data, columns=columns)
+    df.to_csv("cve_data_with_cpe.csv", index=False)
+    return df
+
+# ✅ Step 2: Generate Security Terms from CVE Data
+def generate_security_terms(df):
+    word_list = []
+    for text in df["source_identifier"].fillna(""):
+        words = text.lower().split()
+        words = [w for w in words if w.isalnum() and w not in stop_words and w not in punctuation]
+        word_list.extend(words)
+    common_terms = [word for word, _ in Counter(word_list).most_common(500)]
+    return common_terms
+
+# ✅ Step 3: Query Enhancements
+def correct_query(query, common_terms):
+    words = query.split()
+    corrected_words = [process.extractOne(word, common_terms)[0] for word in words]
+    return " ".join(corrected_words)
+
+def expand_query(query):
+    words = query.split()
+    expanded_words = []
+    for word in words:
+        synonyms = []
+        for syn in wordnet.synsets(word):
+            for lemma in syn.lemmas():
+                synonyms.append(lemma.name())
+        expanded_words.append(word)
+        expanded_words.extend(list(set(synonyms))[:3])
+    return " ".join(expanded_words)
+
+def extract_entities(query):
+    doc = nlp(query)
+    entities = {"products": [], "versions": []}
+    for ent in doc.ents:
+        if ent.label_ in ["ORG", "PRODUCT"]:
+            entities["products"].append(ent.text)
+        elif ent.label_ == "CARDINAL":
+            entities["versions"].append(ent.text)
+    return entities
+
+# ✅ Step 4: AI-Powered Search with FAISS
+def load_faiss_index(df):
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    cve_descriptions = df["source_identifier"].fillna("").tolist()
+    cve_ids = df["cve_id"].tolist()
+    cve_vectors = model.encode(cve_descriptions, convert_to_numpy=True)
+
+    dimension = cve_vectors.shape[1]
+    faiss_index = faiss.IndexFlatL2(dimension)
+    faiss_index.add(cve_vectors)
+    faiss.write_index(faiss_index, "cve_faiss.index")
+    return model, faiss_index, cve_ids, cve_descriptions
+
+# ✅ Step 5: AI-Powered Search with Query Understanding
+def enhanced_search_cve(query, model, faiss_index, cve_ids, cve_descriptions, common_terms):
+    corrected_query = correct_query(query, common_terms)
+    expanded_query = expand_query(corrected_query)
+    entities = extract_entities(expanded_query)
+
+    print(f"🔍 Corrected Query: {corrected_query}")
+    print(f"🔍 Expanded Query: {expanded_query}")
+    print(f"🔍 Extracted Entities: {entities}")
+
+    query_vector = model.encode([expanded_query], convert_to_numpy=True)
+    distances, indices = faiss_index.search(query_vector, 5)
+
+    results = [
+        {"cve_id": cve_ids[idx], "description": cve_descriptions[idx], "distance": distances[0][i]}
+        for i, idx in enumerate(indices[0])
+    ]
+
+    return results
+
+# ✅ Step 6: Initialize & Run Search
+print("🚀 Fetching CVE data...")
+df_cve = fetch_cve_data()
+
+print("🚀 Generating security terms...")
+common_terms = generate_security_terms(df_cve)
+
+print("🚀 Loading AI model & FAISS index...")
+model, faiss_index, cve_ids, cve_descriptions = load_faiss_index(df_cve)
+
+query = "Windwos kernal RCE flaws in OpenSSL 3.0"
+results = enhanced_search_cve(query, model, faiss_index, cve_ids, cve_descriptions, common_terms)
+
+print("\n🔹 Top CVE Results:")
+for res in results:
+    print(f"{res['cve_id']} - {res['description']} (Score: {res['distance']:.4f})")
