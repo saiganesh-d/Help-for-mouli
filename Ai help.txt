@@ -159,3 +159,85 @@ results = enhanced_search_cve(query, model, faiss_index, cve_ids, cve_descriptio
 print("\n🔹 Top CVE Results:")
 for res in results:
     print(f"{res['cve_id']} - {res['description']} (Score: {res['distance']:.4f})")
+import faiss
+import os
+import numpy as np
+from sentence_transformers import SentenceTransformer
+
+def save_faiss_index_and_model(df):
+    """Encodes descriptions and saves FAISS index & model for future reuse."""
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+
+    # Convert CVE descriptions into embeddings
+    cve_descriptions = df["source_identifier"].fillna("").tolist()
+    cve_ids = df["cve_id"].tolist()
+    cve_vectors = model.encode(cve_descriptions, convert_to_numpy=True)
+
+    # Create FAISS index
+    dimension = cve_vectors.shape[1]
+    faiss_index = faiss.IndexFlatL2(dimension)
+    faiss_index.add(cve_vectors)
+
+    # Save FAISS index
+    faiss.write_index(faiss_index, "cve_faiss.index")
+
+    # Save CVE IDs for lookup
+    np.save("cve_ids.npy", np.array(cve_ids))
+    np.save("cve_descriptions.npy", np.array(cve_descriptions, dtype=object))
+
+    # Save AI model
+    model.save("all-MiniLM-L6-v2-local")
+
+    print("✅ FAISS index and model saved successfully!")
+
+# Run only once to save the model
+save_faiss_index_and_model(df_cve)
+
+
+def load_faiss_index_and_model():
+    """Loads precomputed FAISS index and AI model for quick search."""
+    if not os.path.exists("cve_faiss.index"):
+        raise FileNotFoundError("FAISS index not found! Run save_faiss_index_and_model first.")
+
+    # Load FAISS index
+    faiss_index = faiss.read_index("cve_faiss.index")
+
+    # Load CVE IDs and descriptions
+    cve_ids = np.load("cve_ids.npy", allow_pickle=True).tolist()
+    cve_descriptions = np.load("cve_descriptions.npy", allow_pickle=True).tolist()
+
+    # Load AI model from local storage
+    model = SentenceTransformer("all-MiniLM-L6-v2-local")
+
+    print("✅ FAISS index and model loaded successfully!")
+    return model, faiss_index, cve_ids, cve_descriptions
+
+# Call this in every new session instead of rebuilding the model
+model, faiss_index, cve_ids, cve_descriptions = load_faiss_index_and_model()
+
+def enhanced_search_cve(query, model, faiss_index, cve_ids, cve_descriptions, common_terms):
+    corrected_query = correct_query(query, common_terms)
+    expanded_query = expand_query(corrected_query)
+    entities = extract_entities(expanded_query)
+
+    print(f"🔍 Corrected Query: {corrected_query}")
+    print(f"🔍 Expanded Query: {expanded_query}")
+    print(f"🔍 Extracted Entities: {entities}")
+
+    query_vector = model.encode([expanded_query], convert_to_numpy=True)
+    distances, indices = faiss_index.search(query_vector, 5)
+
+    results = [
+        {"cve_id": cve_ids[idx], "description": cve_descriptions[idx], "distance": distances[0][i]}
+        for i, idx in enumerate(indices[0])
+    ]
+
+    return results
+
+# Run AI-powered search
+query = "Windwos kernal RCE flaws in OpenSSL 3.0"
+results = enhanced_search_cve(query, model, faiss_index, cve_ids, cve_descriptions, common_terms)
+
+print("\n🔹 Top CVE Results:")
+for res in results:
+    print(f"{res['cve_id']} - {res['description']} (Score: {res['distance']:.4f})")
