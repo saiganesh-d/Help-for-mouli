@@ -1,0 +1,117 @@
+def fetch_cve_with_cpe_data():
+    """Fetches CVE descriptions along with applicable CPEs."""
+    conn = psycopg2.connect(
+        dbname="your_db",
+        user="your_user",
+        password="your_password",
+        host="your_host",
+        port="your_port"
+    )
+    cursor = conn.cursor()
+
+    query = """
+    WITH applicable_cpes AS (
+        SELECT 
+            cm.cpe_match_criteria_id,
+            STRING_AGG(DISTINCT ce.cpe_name, ', ') AS applicable_cpe_names
+        FROM cpematchstring cm
+        JOIN cpematchstring_cpe_entry cmce ON cm.id = cmce.cpematchstring_id
+        JOIN cpeentry ce ON cmce.cpeentry_id = ce.id
+        GROUP BY cm.cpe_match_criteria_id
+    )
+
+    SELECT 
+        cve.id AS cve_id,
+        descriptions.value AS cve_description,
+        cvss.base_score,
+        cvss.base_severity,
+        ac.applicable_cpe_names
+    FROM cve
+    LEFT JOIN descriptions ON cve.id = descriptions.cve_id
+    LEFT JOIN cvssdata cvss ON cve.id = cvss.cve_id
+    LEFT JOIN cve_cpematchstring cvcms ON cve.id = cvcms.cve_id
+    LEFT JOIN cpematchstring cms ON cvcms.cpematchstring_id = cms.id
+    LEFT JOIN applicable_cpes ac ON cms.cpe_match_criteria_id = ac.cpe_match_criteria_id;
+    """
+
+    cursor.execute(query)
+    data = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    df = pd.DataFrame(data, columns=["cve_id", "cve_description", "base_score", "severity", "applicable_cpe_names"])
+    df.to_csv("cve_data_with_cpe.csv", index=False)  # Save for fast access
+    return df
+
+# Fetch updated CVE data
+df_cve = fetch_cve_with_cpe_data()
+
+
+
+def save_faiss_index_and_model(df):
+    """Encodes CVE descriptions and saves FAISS index & model."""
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    
+    # Convert CVE descriptions into embeddings
+    cve_descriptions = df["cve_description"].fillna("No description available").tolist()
+    cve_ids = df["cve_id"].tolist()
+    cpe_info = df["applicable_cpe_names"].fillna("No CPE Info").tolist()
+
+    combined_texts = [f"{desc} - Affected CPEs: {cpe}" for desc, cpe in zip(cve_descriptions, cpe_info)]
+    cve_vectors = model.encode(combined_texts, convert_to_numpy=True)
+
+    # Create FAISS index
+    dimension = cve_vectors.shape[1]
+    faiss_index = faiss.IndexFlatL2(dimension)
+    faiss_index.add(cve_vectors)
+
+    # Save FAISS index
+    faiss.write_index(faiss_index, "cve_faiss.index")
+    np.save("cve_ids.npy", np.array(cve_ids))
+    np.save("cve_descriptions.npy", np.array(cve_descriptions, dtype=object))
+    np.save("cve_cpe_info.npy", np.array(cpe_info, dtype=object))
+    model.save("all-MiniLM-L6-v2-local")
+
+    print("✅ FAISS index and model saved successfully!")
+
+# Run once to save the model
+save_faiss_index_and_model(df_cve)
+
+
+def load_faiss_index_and_model():
+    """Loads precomputed FAISS index and AI model for quick search."""
+    faiss_index = faiss.read_index("cve_faiss.index")
+    cve_ids = np.load("cve_ids.npy", allow_pickle=True).tolist()
+    cve_descriptions = np.load("cve_descriptions.npy", allow_pickle=True).tolist()
+    cve_cpe_info = np.load("cve_cpe_info.npy", allow_pickle=True).tolist()
+    model = SentenceTransformer("all-MiniLM-L6-v2-local")
+
+    print("✅ FAISS index and model loaded successfully!")
+    return model, faiss_index, cve_ids, cve_descriptions, cve_cpe_info
+
+# Load model & FAISS index
+model, faiss_index, cve_ids, cve_descriptions, cve_cpe_info = load_faiss_index_and_model()
+def enhanced_search_cve(query, model, faiss_index, cve_ids, cve_descriptions, cve_cpe_info):
+    """AI-powered search using semantic matching on CVE descriptions & CPEs."""
+    query_vector = model.encode([query], convert_to_numpy=True)
+    distances, indices = faiss_index.search(query_vector, 5)
+
+    results = [
+        {
+            "cve_id": cve_ids[idx],
+            "description": cve_descriptions[idx],
+            "applicable_cpe_names": cve_cpe_info[idx],
+            "distance": distances[0][i]
+        }
+        for i, idx in enumerate(indices[0])
+    ]
+
+    return results
+
+# Example Search Query
+query = "Remote code execution affecting Windows 10"
+results = enhanced_search_cve(query, model, faiss_index, cve_ids, cve_descriptions, cve_cpe_info)
+
+print("\n🔹 Top CVE Results:")
+for res in results:
+    print(f"{res['cve_id']} - {res['description']} \n Affected CPEs: {res['applicable_cpe_names']} (Score: {res['distance']:.4f})\n")
