@@ -1,0 +1,55 @@
+from fuzzywuzzy import process
+
+def correct_query(query, common_terms):
+    """
+    Corrects spelling errors in a query using fuzzy matching.
+    Ensures words exist in `common_terms` before matching.
+    """
+    words = query.split()
+    corrected_words = []
+    
+    for word in words:
+        if word in common_terms:  # If word is already in security terms, use it directly
+            corrected_words.append(word)
+        else:
+            match = process.extractOne(word, common_terms)  # Fuzzy match
+            if match:  # Ensure match is not None
+                corrected_words.append(match[0])  # Get best match
+            else:
+                corrected_words.append(word)  # If no match, keep original word
+    
+    return " ".join(corrected_words)
+
+# Example
+query = "Windwos kernal RCE flaws"
+corrected_query = correct_query(query, common_terms)
+print("✅ Corrected Query:", corrected_query)
+
+import nltk
+from collections import Counter
+from nltk.tokenize import word_tokenize
+nltk.download("punkt")  # Ensure tokenizer is available
+
+def generate_security_terms(df):
+    """
+    Extracts frequent security terms from CVE descriptions.
+    Returns a list of top 500 most common words.
+    """
+    word_list = []
+
+    for text in df["source_identifier"].fillna("Unknown"):  # Avoid NaN issues
+        words = word_tokenize(text.lower())  # Tokenize the text properly
+        words = [w for w in words if w.isalnum() and w not in stop_words]
+        word_list.extend(words)
+
+    common_terms = [word for word, _ in Counter(word_list).most_common(500)]  # Top 500 words
+    
+    # Ensure common_terms is not empty
+    if not common_terms:
+        common_terms = ["vulnerability", "security", "kernel", "exploit", "windows", "linux"]  # Default terms
+
+    return common_terms
+
+# Generate terms
+common_terms = generate_security_terms(df_cve)
+print("✅ Top Security Terms:", common_terms[:20])  # Show first 20 terms
