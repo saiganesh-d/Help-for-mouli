@@ -1,0 +1,36 @@
+import re
+
+# Define regex patterns for .c and .o files
+c_file_pattern = re.compile(r'([\w/.-]+\.c)\b')
+o_file_pattern = re.compile(r'([\w/.-]+\.o)\b')
+
+# Read the compile log file
+log_file_path = "kernel_compile.log"  # Change this to your actual log file
+compiled_c_files = set()
+compiled_o_files = set()
+
+with open(log_file_path, 'r', encoding='utf-8', errors='ignore') as file:
+    for line in file:
+        # Search for .c and .o files
+        c_matches = c_file_pattern.findall(line)
+        o_matches = o_file_pattern.findall(line)
+        
+        # Add to sets to avoid duplicates
+        compiled_c_files.update(c_matches)
+        compiled_o_files.update(o_matches)
+
+# Print or store results
+print("Compiled C Files:")
+for c_file in sorted(compiled_c_files):
+    print(c_file)
+
+print("\nCompiled Object Files:")
+for o_file in sorted(compiled_o_files):
+    print(o_file)
+
+# Optional: Save to output files
+with open("compiled_c_files.txt", "w") as f:
+    f.writelines("\n".join(sorted(compiled_c_files)))
+
+with open("compiled_o_files.txt", "w") as f:
+    f.writelines("\n".join(sorted(compiled_o_files)))
