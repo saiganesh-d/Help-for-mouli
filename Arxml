@@ -1,0 +1,10 @@
+def explore_arxml_structure(arxml_file):
+    path_stack = []
+
+    for event, elem in ET.iterparse(arxml_file, events=("start", "end")):
+        if event == "start":
+            path_stack.append(elem.tag)
+            print("  " * len(path_stack) + f"- {elem.tag}")
+        elif event == "end":
+            path_stack.pop()
+            elem.clear()
