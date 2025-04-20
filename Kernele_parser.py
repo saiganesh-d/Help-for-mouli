@@ -133,3 +133,30 @@ def parse_makefiles_and_save(version: str):
                                     )
 
     print(f"[✅] Kernel parsing complete for version {version}")
+
+
+import tarfile
+import urllib.request
+
+def download_and_extract_kernel(version: str) -> str:
+    short_version = ".".join(version.split(".")[:2])
+    major_digit = version.split(".")[0]
+    major_series = f"v{major_digit}.x"
+    url = f"https://cdn.kernel.org/pub/linux/kernel/{major_series}/linux-{version}.tar.xz"
+    dest_dir = os.path.join(KERNEL_CACHE_DIR, version)
+    archive_path = os.path.join(KERNEL_CACHE_DIR, f"linux-{version}.tar.xz")
+
+    if os.path.exists(dest_dir):
+        print(f"[✓] Kernel source already extracted at {dest_dir}")
+        return dest_dir
+
+    print(f"[↓] Downloading kernel source: {url}")
+    urllib.request.urlretrieve(url, archive_path)
+
+    print(f"[📦] Extracting kernel source to {dest_dir}")
+    with tarfile.open(archive_path, "r:xz") as tar:
+        tar.extractall(path=KERNEL_CACHE_DIR)
+
+    os.rename(os.path.join(KERNEL_CACHE_DIR, f"linux-{version}"), dest_dir)
+    return dest_dir
+
