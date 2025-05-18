@@ -1,0 +1,187 @@
+“Technical Authentication” in the GAS-OIDC guide
+
+(a.k.a. the Client-Credentials grant)
+
+❓ What is it?	Machine-to-machine authentication – no human end-user, just your API caller (another backend, cron-job, integration platform…) requesting an access-token with its own client_id + client_secret.
+
+🤝 Where is it used?	Whenever your Django app exposes a REST/JSON API that other internal systems consume. Those systems will: 1️⃣ call the /token endpoint with grant_type=client_credentials → 2️⃣ receive a short-lived opaque access-token → 3️⃣ hit your API with Authorization: Bearer <token>.
+🧩 How does your API trust the token?	By doing a token-introspection call (RFC 7662) back to GAS-OIDC. If the response says active:true, you accept the request; else you return HTTP 401.
+
+
+The pictures you sent (section 6) show the exact sequence:
+
+Caller ──(client_credentials)──► IDP ──► token
+Caller ──(Bearer token)────────► Your API
+Your API ─► Introspect token ► IDP
+IDP   ────► active? sub? scope?  ─► Your API
+Your API ─► business logic / data
+
+Below is a step-by-step recipe to add this to the Django project you already OIDC-enabled for user logins.
+
+
+---
+
+1 · Register a “technical client”
+
+1. In the IAM Approval Tool create a new client of type “Client-Credentials”.
+
+
+2. Pick the scopes your API will understand – e.g. myapi.read, myapi.write.
+
+
+3. (Optional) Bind a technical user to the client. The user’s UID will appear in the introspection response’s sub claim so downstream systems can look up roles in LDAP/DRD.
+
+
+4. Hand the generated client_id & client_secret to the team that will call your API.
+
+
+
+
+---
+
+2 · Expose the discovery & introspection URLs
+
+# settings.py
+OIDC_OP_DISCOVERY_ENDPOINT = "https://sso-int.mercedes-benz.com/.well-known/openid-configuration"
+
+Fetch the discovery doc once to see the introspection_endpoint (mozilla-django-oidc exposes it via from mozilla_django_oidc.utils import get_provider_info).
+
+
+---
+
+3 · Add a Django “Bearer” authentication class
+
+# auth.py
+import requests, time
+from django.conf import settings
+from rest_framework import authentication, exceptions     # if you use DRF; otherwise make middleware
+
+INTROSPECT_URL = ...  # pull from discovery once at startup
+INTROSPECT_AUTH = (settings.API_INTROSPECT_CLIENT_ID,
+                   settings.API_INTROSPECT_CLIENT_SECRET)
+
+_CACHE = {}           # token -> (expiration_ts, payload)
+
+class IntrospectAuth(authentication.BaseAuthentication):
+    """DRF style auth class that validates Client-Credentials tokens."""
+
+    def authenticate(self, request):
+        header = request.headers.get("Authorization", "")
+        if not header.startswith("Bearer "):
+            return None
+
+        token = header.split()[1]
+        # ---------- tiny in-memory cache ----------
+        entry = _CACHE.get(token)
+        if entry and entry[0] > time.time():
+            payload = entry[1]
+        else:
+            resp = requests.post(
+                INTROSPECT_URL,
+                auth=INTROSPECT_AUTH,
+                data={"token": token},
+                timeout=3,
+            )
+            if resp.status_code != 200:
+                raise exceptions.AuthenticationFailed("Introspection error")
+            payload = resp.json()
+            if not payload.get("active"):
+                raise exceptions.AuthenticationFailed("Token inactive")
+            _CACHE[token] = (time.time() + 55, payload)   # cache for ~1 minute
+        # ------------------------------------------
+
+        # OPTIONAL: check scope
+        if "myapi.read" not in payload.get("scope", "").split():
+            raise exceptions.PermissionDenied("Scope missing")
+
+        # Build a Django user object on-the-fly (no password / no DB write)
+        from django.contrib.auth.models import AnonymousUser, User
+        user = User(username=payload["sub"]) if "sub" in payload else AnonymousUser()
+        user.is_authenticated = True
+        request.auth = payload                     # raw introspection payload if views need it
+        return (user, None)
+
+If you don’t use Django-REST-Framework: wrap the same logic in middleware and set request.user yourself.
+
+
+---
+
+4 · Wire it into the API
+
+# settings.py (for DRF)
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "myproject.auth.IntrospectAuth",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+}
+
+For vanilla Django views:
+
+from django.http import JsonResponse
+from myproject.auth import IntrospectAuth
+
+@IntrospectAuth.as_view()       # or custom decorator
+def data_endpoint(request):
+    return JsonResponse({"ok": True})
+
+
+---
+
+5 · Tell your consumers how to call you
+
+POST /as/token.oauth2
+  Authorization: Basic base64(client_id:client_secret)
+  Content-Type: application/x-www-form-urlencoded
+
+  grant_type=client_credentials
+
+Returns:
+
+{
+  "access_token": "vCA...wr9n",
+  "token_type": "Bearer",
+  "expires_in": 1799   // 30 min is typical
+}
+
+They must cache the token and reuse it until ~60 s before expiry, then fetch a new one.
+
+
+---
+
+6 · Important “gotchas” from the guide
+
+Spec sentence	What it means for you
+
+“You cannot call /userinfo with a client-credentials token.”	Don’t even try – that endpoint is only for end-user tokens.
+“Each client is limited to 7 refresh tokens / user”	N/A – client-credentials tokens never return a refresh-token.
+“APIs must introspect the token and verify sub against LDAP if they need roles.”	The introspection payload tells you sub=TE12345. If your API needs fine-grained perms, look them up in DRD/LDAP using that UID.
+“Fallback on 401: try to get a new token but avoid loops.”	Your callers should retry once; your API should just issue 401 and never refresh on behalf of the caller.
+
+
+
+---
+
+7 · Local smoke-test
+
+export CC_ID=... CC_SECRET=...
+curl -u $CC_ID:$CC_SECRET \
+     -d 'grant_type=client_credentials' \
+     https://sso-int.mercedes-benz.com/as/token.oauth2
+# copy access_token →
+curl -H 'Authorization: Bearer eyJ...' http://localhost:8000/api/hello
+
+Expected → 200 JSON from your view.
+
+
+---
+
+That’s it!
+
+User-facing pages use the Authorization-Code + PKCE flow you already wired.
+
+Server-to-server calls use the Client-Credentials flow you just added.
+
+
+Both rely on the same identity provider; your Django project is now a full-fledged Relying Party + Resource Server. Ping me if you need help adding token-introspection caching, OpenAPI docs with securitySchemes, or scope-based permission classes.
+
