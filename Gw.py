@@ -69,3 +69,60 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+#!/usr/bin/env python3
+"""
+mf4_scan.py  –  list every channel in a multi-GB MF4 file with bus-type guess.
+
+Usage:
+    $ python mf4_scan.py mylog.mf4 --limit 10
+"""
+
+import argparse
+from datetime import datetime
+from pathlib import Path
+
+from asammdf import MDF, Signal
+
+BUS_TAGS = {
+    "CAN":     ("CAN_", "CAN "),     # CAN/CAN FD
+    "LIN":     ("LIN_", "LIN "),     # LIN
+    "FlexRay": ("FR_",),             # FlexRay
+    "ETH":     ("ETH", "ETHERNET"),  # SOME-IP / raw Eth
+}
+
+def guess_bus(channel_group_name: str) -> str | None:
+    upper = channel_group_name.upper()
+    for bus, prefixes in BUS_TAGS.items():
+        if any(upper.startswith(p) for p in prefixes):
+            return bus
+    return None
+
+
+def scan_mf4(path: Path, limit: int | None = None):
+    with MDF(path, memory="minimal") as mdf:          # <—— no full file in RAM
+        for cg_index, cg in enumerate(mdf.groups, start=1):
+            bus = guess_bus(cg.name or "")
+            for ch_index, ch in enumerate(cg.channels, start=1):
+                sig: Signal = mdf.get_signal(ch)      # lazy – data not loaded yet
+                start, stop = sig.timestamps[[0, -1]]
+                print(f"[CG{cg_index:03}.{ch_index:04}] "
+                      f"{sig.name:30} "
+                      f"({sig.unit or '—':8})  "
+                      f"samples={len(sig):7d}  "
+                      f"{datetime.utcfromtimestamp(start):%H:%M:%S.%f}–"
+                      f"{datetime.utcfromtimestamp(stop):%H:%M:%S.%f}  "
+                      f"{bus or ''}")
+                if limit and cg_index >= limit:
+                    return
+
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("mf4", type=Path, help="Path to .mf4 file")
+    ap.add_argument("--limit", type=int, help="Stop after N channel-groups")
+    args = ap.parse_args()
+    scan_mf4(args.mf4, args.limit)
